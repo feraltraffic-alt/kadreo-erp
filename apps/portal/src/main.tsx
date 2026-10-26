@@ -12,7 +12,9 @@ import { TimesheetsPage } from "./features/TimesheetsPage";
 import "./index.css";
 import { Placeholder, PortalLayout } from "./shell/PortalLayout";
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 10_000 } } });
+// Statuses change on the contractor's side (request accepted, dispute answered): every screen
+// refetches when opened; dictionaries and the profile keep their own longer lifetime.
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true, staleTime: 0 } } });
 
 // Hash routing keeps deep links working on any static host and in preview pages.
 const router = createHashRouter([
