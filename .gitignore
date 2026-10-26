@@ -12,3 +12,4 @@ dist-demo
 backend/.gradle/
 backend/build/
 *.class
+e2e/out/
