@@ -309,7 +309,7 @@ class MobileIT extends IntegrationTest {
 
         // The kiosk account reaches nothing else.
         assertThat(k.get("/api/v1/me/today", Map.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(k.get("/api/v1/timesheets", List.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(k.get("/api/v1/timesheets", Map.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     @Test
