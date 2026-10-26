@@ -23,6 +23,15 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      # Docker 29 on the runners rejects the API version Testcontainers 1.21 negotiates by default.
+      - name: Allow older Docker API clients
+        run: |
+          docker version --format 'server {{.Server.Version}} api {{.Server.APIVersion}} min {{.Server.MinAPIVersion}}'
+          cfg=/etc/docker/daemon.json
+          if [ -f $cfg ]; then sudo jq '. + {"min-api-version":"1.24"}' $cfg > /tmp/daemon.json; else echo '{"min-api-version":"1.24"}' > /tmp/daemon.json; fi
+          sudo mv /tmp/daemon.json $cfg
+          sudo systemctl restart docker
+          docker version --format 'server {{.Server.Version}} api {{.Server.APIVersion}} min {{.Server.MinAPIVersion}}'
       - name: Build and test
         run: ./gradlew build --no-daemon --stacktrace
       - name: Test report
