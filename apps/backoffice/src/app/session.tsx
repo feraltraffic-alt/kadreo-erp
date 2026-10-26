@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, type ReactN
 import { common } from "../i18n/common";
 import { dashboard } from "../i18n/dashboard";
 import { schedule } from "../i18n/schedule";
+import { requests } from "../i18n/requests";
 import { timesheet } from "../i18n/timesheet";
 
 /**
@@ -20,7 +21,7 @@ export const api: Api = apiUrl !== null
   ? createHttpApi({ baseUrl: apiUrl, token: demoTokenProvider(apiUrl, (import.meta.env.VITE_DEMO_EMAIL as string | undefined) ?? "marta.kowalska@demo-outsourcing.pl") })
   : createMockApi();
 
-const catalogs = mergeCatalogs(common, dashboard, schedule, timesheet);
+const catalogs = mergeCatalogs(common, dashboard, schedule, timesheet, requests);
 
 interface SessionValue {
   user: CurrentUser;

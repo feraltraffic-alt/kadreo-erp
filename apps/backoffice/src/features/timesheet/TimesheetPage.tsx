@@ -3,7 +3,7 @@ import { useI18n } from "@kadreo/i18n";
 import { Badge, Button, Card, cn, Dialog, DialogContent, DialogFooter, ErrorState, Input, Menu, MenuContent, MenuItem, MenuTrigger, Skeleton, Tooltip, useToast, type Tone } from "@kadreo/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Search } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import writeXlsxFile from "write-excel-file/universal";
 import { api, useSession } from "../../app/session";
@@ -34,12 +34,23 @@ export function TimesheetPage() {
   const [position, setPosition] = useState<string | null>(null);
   const [onlyIssues, setOnlyIssues] = useState<boolean | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // ?cell=rowId|date opens that day's panel (links from the disputes list).
   const [target, setTarget] = useState<PanelTarget | null>(null);
+  const cellParam = params.get("cell");
+  const opened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || !cellParam || opened.current === cellParam) return;
+    opened.current = cellParam;
+    const [rowId, date] = cellParam.split("|");
+    if (rowId && date && data.timesheet.rows.some((r) => r.id === rowId)) setTarget({ timesheetId: data.timesheet.id, rowId, date });
+  }, [data, cellParam]);
   const dirty = useRef(false);
   const [pending, setPending] = useState<PanelTarget | null | "close">(null);
 
   const issueRows = useMemo(() => (data ? data.timesheet.rows.filter((r) => r.days.some((d) => d.issue)) : []), [data]);
-  const issuesOn = onlyIssues ?? issueRows.length > 0;
+  /** Rows the manager has to look at: issues, and days the client disputed. */
+  const attentionRows = useMemo(() => (data ? data.timesheet.rows.filter((r) => r.days.some((d) => d.issue || d.disputed)) : []), [data]);
+  const issuesOn = onlyIssues ?? attentionRows.length > 0;
   const rows = useMemo(() => {
     if (!data) return [];
     const s = search.trim().toLowerCase();
@@ -47,10 +58,10 @@ export function TimesheetPage() {
       const w = data.workers[r.workerId]!;
       if (s.length >= 2 && !`${w.firstName} ${w.lastName}`.toLowerCase().includes(s)) return false;
       if (position && r.positionId !== position) return false;
-      if (issuesOn && !r.days.some((d) => d.issue)) return false;
+      if (issuesOn && !r.days.some((d) => d.issue || d.disputed) && !(target && target.rowId === r.id)) return false;
       return true;
     });
-  }, [data, search, position, issuesOn]);
+  }, [data, search, position, issuesOn, target]);
 
   const visibleRows = showAll ? rows : rows.slice(0, PAGE);
   const ts = data?.timesheet;
@@ -186,7 +197,7 @@ export function TimesheetPage() {
               onClick={() => setOnlyIssues(!issuesOn)}
               className={cn("h-10 rounded-control border px-3.5 text-[13px] font-semibold transition-colors", issuesOn ? "border-warn bg-warn-bg text-warn-text" : "border-input bg-surface text-ink hover:bg-divider")}
             >
-              {t("ts.onlyIssues", { n: issueRows.length })}
+              {t("ts.onlyIssues", { n: attentionRows.length })}
             </button>
           </div>
           <div className="overflow-x-auto">
@@ -216,7 +227,7 @@ export function TimesheetPage() {
                 ) : visibleRows.length === 0 ? (
                   <tr>
                     <td colSpan={days.length + 4} className="px-4 py-12 text-center text-muted">
-                      {issuesOn && issueRows.length === 0 ? t("ts.noIssues") : t("ts.empty")}
+                      {issuesOn && attentionRows.length === 0 ? t("ts.noIssues") : t("ts.empty")}
                     </td>
                   </tr>
                 ) : (

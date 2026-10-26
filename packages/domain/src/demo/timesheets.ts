@@ -38,6 +38,8 @@ export function buildTimesheet(projectId: string, from: string, to: string): Tim
     byWorker.get(a.workerId)!.push(a);
   }
   const isReview = projectId === STRYKOW_REVIEW.projectId && from === STRYKOW_REVIEW.from;
+  // A timesheet already sent to the client had its issues closed by the manager before sending.
+  const sent = clientStageFor(projectId, from, to).kind !== "not_sent";
   const rows: TimesheetRow[] = [];
   for (const [workerId, list] of byWorker) {
     const firstTpl = projectTemplates.find((t) => t.id === list[0]!.templateId)!;
@@ -60,8 +62,8 @@ export function buildTimesheet(projectId: string, from: string, to: string): Tim
       if (r < 6) Object.assign(day, { payableHours: 0, billableHours: 0, issue: { kind: "no_show" } });
       else if (r < 22) Object.assign(day, { payableHours: planned - 0.25, billableHours: planned - 0.25, issue: { kind: "late_or_early", minutes: 12 } });
       else if (r < 30) Object.assign(day, { payableHours: planned + 0.5, billableHours: planned + 0.5, issue: { kind: "unapproved_overtime", minutes: 34 } });
-      // Older periods were reviewed long ago: their issues are already resolved.
-      if (daysBetween(to, DEMO_TODAY) > 7 && day.issue) {
+      // Older and already sent periods were reviewed: their issues are resolved.
+      if ((daysBetween(to, DEMO_TODAY) > 7 || sent) && day.issue) {
         day.corrections.push({ id: `cor-${workerId}-${date}`, at: `${addDays(to, 1)}T09:00:00+01:00`, byName: project.managerName, payableBefore: day.payableHours, payableAfter: planned, billableBefore: day.billableHours, billableAfter: planned, reasonId: "r-clock-error", comment: "" });
         day.payableHours = planned;
         day.billableHours = planned;

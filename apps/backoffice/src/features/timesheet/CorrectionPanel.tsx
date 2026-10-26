@@ -1,8 +1,8 @@
-import type { ClockEvidence, TimesheetDayDetail } from "@kadreo/domain";
+import type { ClockEvidence, TimesheetDay, TimesheetDayDetail, TimesheetDispute } from "@kadreo/domain";
 import { useI18n } from "@kadreo/i18n";
 import { Button, Card, cn, ErrorState, Field, Input, NativeSelect, Skeleton, Textarea, useToast } from "@kadreo/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, MessageSquareWarning, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, useSession } from "../../app/session";
 import { useFormat } from "../../lib/format";
@@ -19,7 +19,7 @@ export interface PanelTarget {
  */
 export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { target: PanelTarget; locked: boolean; onClose: () => void; onDirtyChange: (dirty: boolean) => void }) {
   const { t, hours, date: fmtDate, time } = useI18n();
-  const { positionName, weekdayShort, dayMonth, reasonName } = useFormat();
+  const { positionName, weekdayShort, dayMonth, reasonName, disputeReasonName, dateTime } = useFormat();
   const { can, dict } = useSession();
   const loc = (id: string) => reasonName(id);
   const toast = useToast();
@@ -73,6 +73,8 @@ export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { ta
   }, [onClose]);
 
   const d = q.data;
+  const openDispute = d?.day.disputes?.find((x) => x.status === "open");
+  const closedDisputes = d?.day.disputes?.filter((x) => x.status !== "open") ?? [];
   const reasons = useMemo(() => dict.correctionReasons, [dict.correctionReasons]);
   const canCorrect = can("timesheet.entry.correct") && !locked && !!d?.day.hasShift;
 
@@ -120,6 +122,10 @@ export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { ta
                 </>
               )}
 
+              {openDispute ? (
+                <DisputeBlock key={openDispute.id} target={target} dispute={openDispute} day={d.day} />
+              ) : (
+                <>
               {locked && <p className="mt-5 rounded-control bg-neutral-bg px-3 py-2.5 text-[13px] text-neutral-text">{t("tsp.locked")}</p>}
 
               <form
@@ -164,6 +170,30 @@ export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { ta
                   </div>
                 )}
               </form>
+                </>
+              )}
+
+              {closedDisputes.length > 0 && (
+                <>
+                  <h3 className="mt-6 mb-2 text-[12px] font-bold tracking-[0.06em] text-muted uppercase">{t("dsp.panel.title")}</h3>
+                  <ul className="flex flex-col gap-2 text-[13px]">
+                    {closedDisputes.map((x) => (
+                      <li key={x.id} className="rounded-[10px] bg-bg px-3 py-2">
+                        <div className="text-muted">{t("dsp.history.open", { name: x.createdByName, date: dateTime(x.createdAt) })}</div>
+                        <div>
+                          {disputeReasonName(x.reasonId)} · {x.comment}
+                        </div>
+                        {x.resolution && (
+                          <div className={cn("mt-1 font-semibold", x.status === "agreed" ? "text-ok-text" : "text-neutral-text")}>
+                            {t(`dsp.history.${x.status === "agreed" ? "agreed" : "rejected"}`, { name: x.resolution.byName, date: dateTime(x.resolution.at) })}
+                            {x.resolution.comment ? <span className="font-normal text-muted"> · {x.resolution.comment}</span> : null}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
               {d.day.corrections.length > 0 && (
                 <>
@@ -189,6 +219,121 @@ export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { ta
         </>
       )}
     </Card>
+  );
+}
+
+/**
+ * The client's open dispute on this day and the manager's decision (rules after a dispute, 12.2):
+ * agree — hours are corrected, by default to the client's figure; reject — with a reply.
+ */
+function DisputeBlock({ target, dispute, day }: { target: PanelTarget; dispute: TimesheetDispute; day: TimesheetDay }) {
+  const { t, hours } = useI18n();
+  const { disputeReasonName, dateTime } = useFormat();
+  const { can } = useSession();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<"agree" | "reject" | null>(null);
+  const fmt = (n: number) => String(n).replace(".", ",");
+  const [payable, setPayable] = useState(fmt(dispute.clientHours ?? day.payableHours));
+  const [billable, setBillable] = useState(fmt(dispute.clientHours ?? day.billableHours));
+  const [comment, setComment] = useState("");
+  const [tried, setTried] = useState(false);
+  const parse = (s: string) => Number(s.replace(",", "."));
+  const valid = (n: number) => Number.isFinite(n) && n >= 0 && n <= 24 && Math.round(n * 4) === n * 4;
+
+  const resolve = useMutation({
+    mutationFn: () =>
+      api.resolveDispute(target.timesheetId, dispute.id, mode === "agree" ? { decision: "agree", payableHours: parse(payable), billableHours: parse(billable), comment } : { decision: "reject", comment }),
+    onSuccess: (res) => {
+      toast.push({ tone: "ok", text: t(res.status === "agreed" ? "dsp.done.agreed" : "dsp.done.rejected") });
+      void qc.invalidateQueries({ queryKey: ["timesheet"] });
+      void qc.invalidateQueries({ queryKey: ["timesheets"] });
+      void qc.invalidateQueries({ queryKey: ["disputes"] });
+      void qc.invalidateQueries({ queryKey: ["tsDay", target.timesheetId, target.rowId, target.date] });
+    },
+    onError: () => toast.push({ tone: "critical", text: t("common.saveError") }),
+  });
+
+  const submit = () => {
+    setTried(true);
+    if (mode === "reject" && !comment.trim()) return;
+    if (mode === "agree" && (!valid(parse(payable)) || !valid(parse(billable)))) return;
+    resolve.mutate();
+  };
+
+  return (
+    <section className="mt-5 rounded-[14px] border border-critical/30 bg-critical-bg/60 p-4" aria-label={t("dsp.panel.title")}>
+      <div className="flex items-center gap-2 text-[13px] font-bold tracking-[0.04em] text-critical-text uppercase">
+        <MessageSquareWarning className="size-4" />
+        {t("dsp.panel.title")}
+      </div>
+      <div className="mt-2.5 text-[15px] font-semibold">{disputeReasonName(dispute.reasonId)}</div>
+      <div className="mt-1 text-[14px] tabular">
+        {t("dsp.panel.hours", { client: dispute.clientHours === undefined ? t("dsp.noHours") : hours(dispute.clientHours), ts: hours(day.billableHours) })}
+      </div>
+      <blockquote className="mt-2.5 rounded-[10px] bg-surface px-3 py-2 text-[14px] leading-relaxed">{dispute.comment}</blockquote>
+      <div className="mt-2 text-[12px] text-muted">{t("dsp.panel.by", { name: dispute.createdByName, date: dateTime(dispute.createdAt) })}</div>
+
+      {can("timesheet.dispute.resolve") && (
+        <>
+          {mode === null ? (
+            <div className="mt-4 flex gap-3">
+              <Button variant="primary" className="flex-1" onClick={() => setMode("agree")}>
+                {t("dsp.agree")}
+              </Button>
+              <Button className="flex-1" onClick={() => setMode("reject")}>
+                {t("dsp.reject")}
+              </Button>
+            </div>
+          ) : (
+            <form
+              className="mt-4 flex flex-col gap-3.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit();
+              }}
+            >
+              {mode === "agree" && (
+                <>
+                  <p className="text-[13px] leading-relaxed text-muted">{t("dsp.agree.hint")}</p>
+                  <div className={cn("grid gap-3", can("contract.rates.read") ? "grid-cols-2" : "grid-cols-1")}>
+                    <Field label={t("tsp.payable")} htmlFor="dsp-pay" error={tried && !valid(parse(payable)) ? t("tsp.hoursRange") : undefined}>
+                      <Input id="dsp-pay" inputMode="decimal" value={payable} onChange={(e) => setPayable(e.target.value)} className="h-11 font-semibold tabular" />
+                    </Field>
+                    {can("contract.rates.read") && (
+                      <Field label={t("tsp.billable")} htmlFor="dsp-bill" error={tried && !valid(parse(billable)) ? t("tsp.hoursRange") : undefined}>
+                        <Input id="dsp-bill" inputMode="decimal" value={billable} onChange={(e) => setBillable(e.target.value)} className="h-11 font-semibold tabular" />
+                      </Field>
+                    )}
+                  </div>
+                </>
+              )}
+              <Field
+                label={mode === "reject" ? t("dsp.reject.comment") : t("dsp.comment.optional")}
+                required={mode === "reject"}
+                htmlFor="dsp-comment"
+                error={tried && mode === "reject" && !comment.trim() ? t("dsp.reject.required") : undefined}
+              >
+                <Textarea id="dsp-comment" maxLength={1000} value={comment} placeholder={mode === "reject" ? t("dsp.reject.comment.ph") : t("tsp.comment.ph")} onChange={(e) => setComment(e.target.value)} />
+              </Field>
+              <div className="flex gap-3">
+                <Button type="submit" variant="primary" className="flex-1" loading={resolve.isPending}>
+                  {t(mode === "agree" ? "dsp.agree.confirm" : "dsp.reject.confirm")}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setMode(null);
+                    setTried(false);
+                  }}
+                >
+                  {t("common.cancel")}
+                </Button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

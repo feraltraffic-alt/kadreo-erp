@@ -1,5 +1,5 @@
 import { useI18n } from "@kadreo/i18n";
-import { Badge, Card, ErrorState, Skeleton, type Tone } from "@kadreo/ui";
+import { Badge, Button, Card, ErrorState, Skeleton, type Tone } from "@kadreo/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { api } from "../../app/session";
@@ -12,6 +12,8 @@ export function TimesheetListPage() {
   const { dayMonth, fullDate } = useFormat();
   const navigate = useNavigate();
   const q = useQuery({ queryKey: ["timesheets"], queryFn: () => api.timesheets() });
+  const disputes = useQuery({ queryKey: ["disputes", "open"], queryFn: () => api.disputes({ status: "open" }) });
+  const openDisputes = disputes.data?.length ?? 0;
 
   const stage = (s: NonNullable<typeof q.data>[number]): { label: string; tone: Tone } => {
     const ts = s.timesheet;
@@ -23,7 +25,15 @@ export function TimesheetListPage() {
 
   return (
     <div>
-      <PageHeader title={t("tsList.title")} meta={<span className="text-[14px] text-muted">{t("tsList.subtitle")}</span>} />
+      <PageHeader
+        title={t("tsList.title")}
+        meta={<span className="text-[14px] text-muted">{t("tsList.subtitle")}</span>}
+        actions={
+          <Button variant={openDisputes ? "accent-outline" : "secondary"} onClick={() => navigate(openDisputes ? "/timesheets/disputes" : "/timesheets/disputes?status=all")}>
+            {t("dsp.link", { n: openDisputes })}
+          </Button>
+        }
+      />
       <Card className="overflow-x-auto px-2 py-2">
         {q.isError ? (
           <ErrorState message={t("common.loadError")} retryLabel={t("common.retry")} onRetry={() => void q.refetch()} />

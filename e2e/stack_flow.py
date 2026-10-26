@@ -74,11 +74,28 @@ async def flow(page, shot):
     await page.wait_for_timeout(2000)
     await shot("5_corrected")
 
-    # 4. Global search.
+    # 4. Client request: accept, then the staffing table appears.
+    await page.goto(f"{BASE}/#/requests")
+    await page.get_by_role("button", name="1197", exact=True).click()
+    await expect(page.get_by_text("Szczyt przed akcją").first).to_be_visible(timeout=15000)
+    await page.get_by_role("button", name="Принять в работу").click()
+    await expect(page.get_by_text("0/8").first).to_be_visible(timeout=15000)
+    await shot("6_request_accepted")
+
+    # 5. Timesheet dispute: open from the list, agree with the client's hours.
+    await page.goto(f"{BASE}/#/timesheets/disputes")
+    await page.get_by_text("Часов больше, чем фактически").first.click()
+    await page.get_by_role("button", name="Согласиться", exact=True).click()
+    await page.get_by_role("button", name="Согласиться и исправить часы").click()
+    await expect(page.get_by_text("Спор закрыт").first).to_be_visible(timeout=15000)
+    await expect(page.get_by_text("Согласовано · Marta Kowalska").first).to_be_visible(timeout=15000)
+    await shot("7_dispute_agreed")
+
+    # 6. Global search.
     await page.keyboard.press("Control+k")
     await page.keyboard.type("Rudenko")
     await expect(page.get_by_text("Dmytro Rudenko").first).to_be_visible(timeout=10000)
-    await shot("6_search")
+    await shot("8_search")
 
 
 asyncio.run(main())

@@ -32,7 +32,7 @@ class TimesheetIT extends IntegrationTest {
     void listShowsTheReviewPeriodOfEveryProject() {
         List<Map> list = marta().get("/api/v1/timesheets", List.class).getBody();
         assertThat(list).hasSize(23);
-        assertThat(list.stream().filter(x -> (Integer) x.get("issues") > 0)).hasSize(21);
+        assertThat(list.stream().filter(x -> (Integer) x.get("issues") > 0)).hasSize(9);
     }
 
     @Test

@@ -7,6 +7,9 @@ import { SessionProvider } from "./app/session";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ProjectsPage } from "./features/schedule/ProjectsPage";
 import { SchedulePage } from "./features/schedule/SchedulePage";
+import { RequestPage } from "./features/requests/RequestPage";
+import { RequestsPage } from "./features/requests/RequestsPage";
+import { DisputesPage } from "./features/timesheet/DisputesPage";
 import { TimesheetListPage } from "./features/timesheet/TimesheetListPage";
 import { TimesheetPage } from "./features/timesheet/TimesheetPage";
 import "./index.css";
@@ -18,7 +21,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 10_000 } },
 });
 
-const built = new Set(["dashboard", "schedule", "timesheets"]);
+const built = new Set(["dashboard", "schedule", "timesheets", "requests"]);
 const placeholders = [...navItems.filter((n) => !built.has(n.key)), settingsItem, alertsItem];
 
 // Hash routing keeps deep links working on any static host and in preview pages.
@@ -31,6 +34,9 @@ const router = createHashRouter([
       { path: "workforce/projects", element: <RequirePermission anyOf={["shift.schedule.read"]}><ProjectsPage /></RequirePermission> },
       { path: "workforce/projects/:projectId/schedule", element: <RequirePermission anyOf={["shift.schedule.read"]}><SchedulePage /></RequirePermission> },
       { path: "timesheets", element: <RequirePermission anyOf={["timesheet.read"]}><TimesheetListPage /></RequirePermission> },
+      { path: "timesheets/disputes", element: <RequirePermission anyOf={["timesheet.read"]}><DisputesPage /></RequirePermission> },
+      { path: "requests", element: <RequirePermission anyOf={["staffrequest.read"]}><RequestsPage /></RequirePermission> },
+      { path: "requests/:id", element: <RequirePermission anyOf={["staffrequest.read"]}><RequestPage /></RequirePermission> },
       { path: "timesheets/projects/:projectId", element: <RequirePermission anyOf={["timesheet.read"]}><TimesheetPage /></RequirePermission> },
       ...placeholders.map((n) => ({
         path: `${n.to.slice(1)}/*`,
