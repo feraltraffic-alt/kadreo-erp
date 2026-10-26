@@ -104,7 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Build and start
-        run: docker compose up -d --build --wait db && docker compose up -d --build backend web
+        run: docker compose up -d --build --wait db && docker compose up -d --build backend web portal
       - name: Wait for the backend (seed loads on first start)
         run: |
           for i in $(seq 1 90); do
@@ -122,6 +122,7 @@ jobs:
           get /dashboard/summary | jq -e '.onShiftNow == 464 and .plannedNow == 478'
           get /timesheets | jq -e 'length == 23'
           curl -fs http://localhost:8081/ | grep -q '<div id="root">'
+          curl -fs http://localhost:8082/ | grep -q '<div id="root">'
           echo "stack OK"
       - name: Browser flow against the stack
         run: |
@@ -131,6 +132,8 @@ jobs:
           python -m playwright install --with-deps chromium > /tmp/pw.log 2>&1 || report "playwright install" /tmp/pw.log
           python e2e/stack_flow.py http://localhost:8081 > /tmp/e2e.log 2>&1 || report "browser flow" /tmp/e2e.log
           cat /tmp/e2e.log
+          python e2e/portal_flow.py http://localhost:8082 http://localhost:8081 > /tmp/portal.log 2>&1 || report "portal flow" /tmp/portal.log
+          cat /tmp/portal.log
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4
