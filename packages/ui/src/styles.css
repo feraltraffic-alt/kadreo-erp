@@ -1,0 +1,88 @@
+/*
+ * Design tokens from spec 8.1–8.3. Tailwind v4 reads @theme and generates utilities
+ * (bg-accent, text-muted, rounded-card …). Tenant branding may override the accent tokens at
+ * runtime on :root; dark theme will redefine the same tokens in one place.
+ */
+@import "@fontsource/onest/400.css";
+@import "@fontsource/onest/500.css";
+@import "@fontsource/onest/600.css";
+@import "@fontsource/onest/700.css";
+@import "@fontsource/onest/800.css";
+
+@theme {
+  --font-sans: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-accent: #ff5b14;
+  --color-accent-strong: #c2410c; /* text and buttons with white text on white bg: 5.2:1 (Q-04) */
+  --color-accent-soft: #ffede3;
+  --color-accent-ink: #9a3412;
+
+  --color-bg: #f4f5f8;
+  --color-surface: #ffffff;
+  --color-border: #e4e7ec;
+  --color-divider: #f0f2f5;
+  --color-input: #d0d5dd;
+  --color-ink: #0e1525;
+  --color-muted: #5b6474;
+  --color-sidebar: #0e1525;
+  --color-sidebar-muted: #aab1bf;
+
+  --color-ok: #12b76a;
+  --color-ok-bg: #e7f8ef;
+  --color-ok-text: #067647;
+  --color-warn: #eaaa08;
+  --color-warn-bg: #fef7c3;
+  --color-warn-text: #854a0e;
+  --color-critical: #e5484d;
+  --color-critical-bg: #fdecec;
+  --color-critical-text: #c01f2a;
+  --color-neutral-bg: #f0f2f5;
+  --color-neutral-text: #344054;
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  --shadow-pop: 0 12px 32px -8px rgb(14 21 37 / 0.18), 0 2px 6px rgb(14 21 37 / 0.06);
+  --shadow-card: 0 1px 2px rgb(14 21 37 / 0.04);
+
+  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
+  --animate-shimmer: shimmer 1.4s ease infinite;
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.9); opacity: 0.55; }
+    80%, 100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  /* Numbers line up in every table and KPI (8.2). */
+  .tabular,
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent-strong);
+    outline-offset: 2px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}

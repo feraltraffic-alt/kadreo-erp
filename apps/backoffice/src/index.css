@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "@kadreo/ui/styles.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
+@source "../../../packages/ui/src";
+
+/* Dark map popup, as on the dashboard mock-up. */
+.kadreo-popup .maplibregl-popup-content {
+  background: var(--color-ink);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-sans);
+}
+.kadreo-popup .maplibregl-popup-tip {
+  display: none;
+}
+.maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+}
