@@ -195,7 +195,7 @@ class MobileIT extends IntegrationTest {
         assertThat((Map) b.get("counters")).containsEntry("planned", 22).containsEntry("onSite", 17).containsEntry("late", 1).containsEntry("noShow", 4);
         assertThat((Map) b.get("output")).containsEntry("norm", 3600).containsEntry("value", 980).containsEntry("planNow", 1005).containsEntry("source", "team_leader");
         List<Map> members = (List<Map>) b.get("members");
-        assertThat(members).noneMatch(m -> "Tkachenko".equals(m.get("lastName")));
+        assertThat(members).noneMatch(m -> "W-00016".equals(m.get("number"))); // Oleh himself
         Map pawlak = members.stream().filter(m -> "W-00950".equals(m.get("number"))).findFirst().orElseThrow();
         assertThat(pawlak).containsEntry("status", "no_show");
         assertThat((Map) pawlak.get("issue")).containsEntry("kind", "no_gps");
