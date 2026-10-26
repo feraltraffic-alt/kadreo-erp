@@ -61,6 +61,8 @@ class ScheduleIT extends IntegrationTest {
     @Test
     void assignAndUnassignTheBestCandidate() {
         Api api = marta();
+        int before = api.get("/api/v1/shifts/" + PICKERS + "/assignments?date=2026-10-28", List.class).getBody().size();
+        assertThat(before).isEqualTo(9);
         Map best = (Map) api.get("/api/v1/shifts/" + PICKERS + "/candidates?date=2026-10-28", List.class).getBody().get(0);
         var created = api.post("/api/v1/assignments", Map.of("workerId", best.get("workerId"), "templateId", PICKERS, "date", "2026-10-28"), Map.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -71,9 +73,9 @@ class ScheduleIT extends IntegrationTest {
         assertThat(again.getStatusCode().value()).isIn(409, 422);
 
         List<Map> cell = api.get("/api/v1/shifts/" + PICKERS + "/assignments?date=2026-10-28", List.class).getBody();
-        assertThat(cell).hasSize(15);
+        assertThat(cell).hasSize(before + 1);
         assertThat(api.delete("/api/v1/assignments/" + created.getBody().get("id"), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(api.get("/api/v1/shifts/" + PICKERS + "/assignments?date=2026-10-28", List.class).getBody()).hasSize(14);
+        assertThat(api.get("/api/v1/shifts/" + PICKERS + "/assignments?date=2026-10-28", List.class).getBody()).hasSize(before);
     }
 
     @Test
