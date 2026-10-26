@@ -1,0 +1,7 @@
+kadreo:
+  demo:
+    # Demo tokens are signed locally (HS256). Never enable the demo profile in production.
+    jwt-secret: ${DEMO_JWT_SECRET:kadreo-demo-secret-change-me-0123456789abcdef}
+    # Fixed clock so the demo matches the reference mock-ups: Monday 26.10.2026 08:14:52 Warsaw.
+    now: ${DEMO_NOW:2026-10-26T07:14:52Z}
+    seed: ${DEMO_SEED:true}

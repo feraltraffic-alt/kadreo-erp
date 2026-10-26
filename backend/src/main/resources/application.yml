@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: kadreo-backend
+  profiles:
+    # Local runs start with the demo tenant and data; production sets SPRING_PROFILES_ACTIVE=prod.
+    default: demo
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kadreo}
+    # Application role: not the table owner, so row-level security applies (spec 5.1 p. 3).
+    username: ${DB_APP_USER:kadreo_app}
+    password: ${DB_APP_PASSWORD:kadreo_app}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+  flyway:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kadreo}
+    user: ${DB_OWNER_USER:kadreo}
+    password: ${DB_OWNER_PASSWORD:kadreo}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: false
+    republish-outstanding-events-on-restart: true
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+kadreo:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:4173}

@@ -7,3 +7,8 @@ dist
 !.env.example
 .DS_Store
 dist-demo
+
+# Java
+backend/.gradle/
+backend/build/
+*.class
