@@ -41,7 +41,7 @@ public class WorkforceService {
 
     public List<Worker> workers(Collection<UUID> ids) {
         if (ids.isEmpty()) return List.of();
-        return loadWorkers("w.id = any(?)", List.of(ids.toArray(UUID[]::new)));
+        return loadWorkers("w.id = any(?)", List.<Object>of((Object) ids.toArray(UUID[]::new)));
     }
 
     public Worker worker(UUID id) {

@@ -13,8 +13,10 @@ import { timesheet } from "../i18n/timesheet";
  * The backend demo profile signs in through its dev-token endpoint as VITE_DEMO_EMAIL; production
  * sign-in goes through Keycloak (later iteration).
  */
-const apiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
-export const api: Api = apiUrl
+// "/" means same origin (nginx proxies /api); unset means the in-memory demo.
+const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const apiUrl = rawApiUrl ? rawApiUrl.replace(/\/$/, "") : null;
+export const api: Api = apiUrl !== null
   ? createHttpApi({ baseUrl: apiUrl, token: demoTokenProvider(apiUrl, (import.meta.env.VITE_DEMO_EMAIL as string | undefined) ?? "marta.kowalska@demo-outsourcing.pl") })
   : createMockApi();
 
@@ -44,7 +46,7 @@ function storedLocale(): Locale | null {
 
 // Apply the stored language before the first request so the profile matches the UI.
 const initial = storedLocale();
-if (initial && !apiUrl) void api.updateLocale(initial);
+if (initial && apiUrl === null) void api.updateLocale(initial);
 
 export function SessionProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const qc = useQueryClient();

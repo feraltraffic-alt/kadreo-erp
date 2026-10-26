@@ -95,3 +95,33 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --if-present typecheck
       - run: pnpm --filter @kadreo/backoffice build
+
+  stack:
+    name: Docker Compose stack (db + backend + web)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and start
+        run: docker compose up -d --build --wait db && docker compose up -d --build backend web
+      - name: Wait for the backend (seed loads on first start)
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fs http://localhost:8080/actuator/health | grep -q UP; then echo "up after ${i}x2s"; exit 0; fi
+            sleep 2
+          done
+          docker compose logs backend | tail -80
+          exit 1
+      - name: Smoke test through the web proxy
+        run: |
+          set -e
+          TOKEN=$(curl -fs -X POST http://localhost:8081/api/v1/dev/token -H 'Content-Type: application/json' -d '{"email":"marta.kowalska@demo-outsourcing.pl"}' | jq -r .accessToken)
+          get() { curl -fs -H "Authorization: Bearer $TOKEN" "http://localhost:8081/api/v1$1"; }
+          get /me | jq -e '.fullName == "Marta Kowalska"'
+          get /dashboard/summary | jq -e '.onShiftNow == 464 and .plannedNow == 478'
+          get /timesheets | jq -e 'length == 23'
+          curl -fs http://localhost:8081/ | grep -q '<div id="root">'
+          echo "stack OK"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 200

@@ -95,8 +95,20 @@ class DemoSeedLoader implements ApplicationRunner {
     private int insert(Connection c, String table, JsonNode rows) throws SQLException {
         if (!rows.isArray() || rows.isEmpty()) return 0;
         Map<String, String> special = SPECIAL.getOrDefault(table, Map.of());
-        List<String> keys = new ArrayList<>();
-        rows.get(0).fieldNames().forEachRemaining(keys::add);
+        // Rows of one table may carry different optional keys (missing = column default):
+        // insert each group of rows with the same keys separately.
+        Map<List<String>, List<JsonNode>> groups = new java.util.LinkedHashMap<>();
+        for (JsonNode row : rows) {
+            List<String> k = new ArrayList<>();
+            row.fieldNames().forEachRemaining(k::add);
+            groups.computeIfAbsent(k, x -> new ArrayList<>()).add(row);
+        }
+        int n = 0;
+        for (var g : groups.entrySet()) n += insertGroup(c, table, special, g.getKey(), g.getValue());
+        return n;
+    }
+
+    private int insertGroup(Connection c, String table, Map<String, String> special, List<String> keys, List<JsonNode> rows) throws SQLException {
         // Map export keys to columns: lat/lng → location (site) or home (worker), role_code → role_id.
         List<String> columns = new ArrayList<>();
         List<String> values = new ArrayList<>();

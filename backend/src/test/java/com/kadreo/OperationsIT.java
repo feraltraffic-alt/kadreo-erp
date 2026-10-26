@@ -60,6 +60,7 @@ class OperationsIT extends IntegrationTest {
         List<Map> open = marta().get("/api/v1/alerts?status=open", List.class).getBody();
         assertThat(open).hasSize(6);
         assertThat(open.get(0)).containsEntry("kind", "understaffed").containsEntry("severity", "critical");
+        assertThat(marta().get("/api/v1/alerts?limit=3", List.class).getBody()).hasSize(3);
 
         String leipzigDocs = fromKey("al-2").toString();
         var taken = marta().post("/api/v1/alerts/" + leipzigDocs + "/take", null, Map.class);

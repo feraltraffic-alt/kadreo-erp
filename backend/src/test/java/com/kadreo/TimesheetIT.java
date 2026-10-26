@@ -66,15 +66,17 @@ class TimesheetIT extends IntegrationTest {
         String viktor = viktor(api);
         Map ts = (Map) api.get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-strykow") + "&from=2026-10-19", Map.class).getBody().get("timesheet");
         String path = "/api/v1/timesheets/" + ts.get("id");
-        Map before = (Map) api.get(path + "/rows/" + viktor + "/days/2026-10-22", Map.class).getBody().get("day");
+        Map row = ((List<Map>) ts.get("rows")).stream().filter(r -> viktor.equals(r.get("workerId"))).findFirst().orElseThrow();
+        String date = (String) ((List<Map>) row.get("days")).stream().filter(d -> Boolean.TRUE.equals(d.get("hasShift"))).findFirst().orElseThrow().get("date");
+        Map before = (Map) api.get(path + "/rows/" + viktor + "/days/" + date, Map.class).getBody().get("day");
         int corrections = ((List) before.get("corrections")).size();
 
-        var res = api.post(path + "/corrections", Map.of("rowId", viktor, "date", "2026-10-22", "payableHours", 7.5, "billableHours", 7.5,
+        var res = api.post(path + "/corrections", Map.of("rowId", viktor, "date", date, "payableHours", 7.5, "billableHours", 7.5,
                 "reasonId", fromKey("r-clock-error").toString(), "comment", "test"), Map.class);
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(res.getBody()).containsEntry("byName", "Marta Kowalska").containsEntry("payableAfter", 7.5);
 
-        Map after = (Map) api.get(path + "/rows/" + viktor + "/days/2026-10-22", Map.class).getBody().get("day");
+        Map after = (Map) api.get(path + "/rows/" + viktor + "/days/" + date, Map.class).getBody().get("day");
         assertThat(after).containsEntry("payableHours", 7.5).doesNotContainKey("issue");
         assertThat((List) after.get("corrections")).hasSize(corrections + 1);
     }

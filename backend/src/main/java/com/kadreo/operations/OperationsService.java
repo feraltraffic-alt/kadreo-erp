@@ -93,8 +93,7 @@ public class OperationsService {
     public List<Alert> alerts(boolean openOnly, Integer limit) {
         users.require("alert.read");
         var visible = dashboard.visibleSites(new DashboardService.Filter(null, null)).stream().map(Site::id).collect(Collectors.toSet());
-        return jdbc.sql(ALERT_SQL + (openOnly ? " where status <> 'closed'" : "") + """
-                 order by case severity when 'critical' then 0 when 'warning' then 1 else 2 end, created_at desc""")
+        return jdbc.sql(ALERT_SQL + (openOnly ? " where status <> 'closed'" : "") + " order by case severity when 'critical' then 0 when 'warning' then 1 else 2 end, created_at desc")
                 .query(OperationsService::alert).list().stream()
                 .filter(a -> visible.contains(a.siteId()))
                 .limit(limit == null ? Long.MAX_VALUE : limit)
