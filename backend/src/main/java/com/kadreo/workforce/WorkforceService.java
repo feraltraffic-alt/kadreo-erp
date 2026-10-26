@@ -90,7 +90,8 @@ public class WorkforceService {
                 select w.id, w.number, w.first_name, w.last_name, w.phone, w.citizenship, w.language, w.contract_kind,
                        coalesce(ST_Y(w.home::geometry), 0) as lat, coalesce(ST_X(w.home::geometry), 0) as lng,
                        w.prefers_morning, w.weekly_hour_limit, w.status, w.status_until, w.badge_count, w.rating
-                from worker w where """ + where + " order by w.number");
+                from worker w
+                where\s""" + where + " order by w.number");
         for (Object p : params) spec = spec.param(p);
         return spec.query((ResultSet rs, int i) -> mapWorker(rs, positions, competences, experience)).list();
     }

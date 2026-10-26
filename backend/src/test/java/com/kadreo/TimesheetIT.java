@@ -24,7 +24,7 @@ class TimesheetIT extends IntegrationTest {
     }
 
     static String viktor(Api api) {
-        List<Map> hits = (List<Map>) api.get("/api/v1/search?q=Hnatiuk", Map.class).getBody().get("workers");
+        List<Map> hits = (List<Map>) api.get("/api/v1/search?q=Viktor Hnatiuk", Map.class).getBody().get("workers");
         return (String) hits.stream().filter(h -> "Viktor Hnatiuk".equals(h.get("label"))).findFirst().orElseThrow().get("id");
     }
 
