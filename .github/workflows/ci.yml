@@ -98,7 +98,8 @@ jobs:
 
   stack:
     name: Docker Compose stack (db + backend + web)
-    runs-on: ubuntu-latest
+    # Playwright browsers do not support Ubuntu 26.04 yet.
+    runs-on: ubuntu-24.04
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v5
