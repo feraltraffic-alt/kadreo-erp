@@ -247,6 +247,13 @@ export function KioskScreen() {
           <Text size={13} c={color.muted}>
             {t("kiosk.device", { code: s?.device.code ?? "—", time: syncedAt ? siteHm(syncedAt).hm : "—" })}
           </Text>
+          {isDemo ? (
+            <Pressable accessibilityRole="link" onPress={signOut} style={{ marginTop: 6 }}>
+              <Text size={13} w={600} c={color.accentStrong}>
+                {t("demo.switch_user")}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

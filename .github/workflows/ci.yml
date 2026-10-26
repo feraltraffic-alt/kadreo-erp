@@ -69,11 +69,16 @@ jobs:
                   for i, l in enumerate(lines):
                       if "Unhandled error" in l or (" ERROR " in l and "ApiExceptionHandler" not in l):
                           block = [l.strip()[-300:]]
-                          for x in lines[i + 1:i + 40]:
+                          frames = 0
+                          for x in lines[i + 1:i + 80]:
                               xs = x.strip()
-                              if xs.startswith("at ") and "com.kadreo" not in xs:
+                              if xs.startswith("at "):
+                                  if "com.kadreo" in xs and frames < 3:
+                                      frames += 1
+                                      block.append(xs[:200])
                                   continue
-                              block.append(xs[:300])
+                              if xs.startswith("Caused by") or "ERROR:" in xs or "Position:" in xs:
+                                  block.append(xs[:400])
                           sig = " ".join(b for b in block if not b.startswith("at "))[:200]
                           if sig not in seen:
                               seen.add(sig)

@@ -21,8 +21,9 @@ function Localized() {
 
 export default function App() {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 0, refetchOnWindowFocus: true } } }));
-  const [fontsLoaded] = useFonts({ Onest_400Regular, Onest_500Medium, Onest_600SemiBold, Onest_700Bold, Onest_800ExtraBold });
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: color.bg }} />;
+  const [fontsLoaded, fontError] = useFonts({ Onest_400Regular, Onest_500Medium, Onest_600SemiBold, Onest_700Bold, Onest_800ExtraBold });
+  // Without the fonts the app still works with the system font.
+  if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: color.bg }} />;
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={client}>
