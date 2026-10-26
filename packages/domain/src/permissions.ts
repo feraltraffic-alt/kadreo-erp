@@ -21,6 +21,8 @@ const ops: Permission[] = [
   "clockevent.read",
   "clockevent.evidence.read",
   "staffrequest.read",
+  "staffrequest.manage",
+  "timesheet.dispute.resolve",
   "site.read",
   "site.manage",
   "client.manage",

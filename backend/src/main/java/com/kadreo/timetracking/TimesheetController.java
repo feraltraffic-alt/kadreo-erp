@@ -27,9 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 class TimesheetController {
 
     private final TimesheetService timesheets;
+    private final DisputeService disputes;
 
-    TimesheetController(TimesheetService timesheets) {
+    TimesheetController(TimesheetService timesheets, DisputeService disputes) {
         this.timesheets = timesheets;
+        this.disputes = disputes;
     }
 
     @GetMapping
@@ -62,5 +64,10 @@ class TimesheetController {
     @PostMapping("/{id}/send-to-client")
     Timesheet send(@PathVariable UUID id) {
         return timesheets.sendToClient(id);
+    }
+
+    @PostMapping("/{id}/disputes/{disputeId}/resolve")
+    TimesheetModels.Dispute resolve(@PathVariable UUID id, @PathVariable UUID disputeId, @RequestBody DisputeService.Resolution in) {
+        return disputes.resolve(id, disputeId, in);
     }
 }

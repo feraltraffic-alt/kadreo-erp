@@ -37,6 +37,7 @@ import {
   workers,
 } from "../src/demo/generate";
 import { alerts, notifications, staffRequests } from "../src/demo/ops";
+import { requestAssignments, requestCells } from "../src/demo/requests";
 import { buildTimesheet, evidenceFor } from "../src/demo/timesheets";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -220,6 +221,7 @@ for (const c of clockEvents) {
 const timesheetRows: unknown[] = [];
 const entryRows: unknown[] = [];
 const correctionRows: unknown[] = [];
+const disputeRows: unknown[] = [];
 for (const p of projects) {
   const contract = contractForClient(siteById.get(p.siteId)!.clientId);
   const lastMonday = addDays(mondayOf(DEMO_TODAY), -7);
@@ -267,6 +269,20 @@ for (const p of projects) {
         issue_minutes: d.issue?.minutes ?? null,
         disputed: !!d.disputed,
       });
+      for (const x of d.disputes ?? []) {
+        disputeRows.push({
+          id: id(x.id),
+          ...T,
+          timesheet_id: tsId,
+          entry_id: entryId,
+          reason_id: id(x.reasonId),
+          client_hours: x.clientHours ?? null,
+          comment: x.comment,
+          created_at: new Date(x.createdAt).toISOString(),
+          created_by_name: x.createdByName,
+          status: x.status,
+        });
+      }
       for (const c of d.corrections) {
         correctionRows.push({
           id: id(c.id),
@@ -306,6 +322,7 @@ seed.clock_event = clocks;
 seed.timesheet = timesheetRows;
 seed.timesheet_entry = entryRows;
 seed.timesheet_correction = correctionRows;
+seed.timesheet_dispute = disputeRows;
 
 seed.alert = alerts.map((a) => ({
   id: id(a.id),
@@ -335,7 +352,22 @@ seed.staff_request = staffRequests.map((r) => ({
   date_to: r.to,
   status: r.status,
   sla_due_at: new Date(r.slaDueAt).toISOString(),
+  template_ids: r.templateIds.map(id),
+  competence_ids: r.competenceIds.map(id),
+  experienced_only: r.experiencedOnly,
+  client_ref: r.clientRef ?? null,
+  comment: r.comment ?? null,
+  contact_name: r.contactName,
+  created_at: new Date(r.createdAt).toISOString(),
+  created_by_name: r.createdByName,
+  accepted_at: r.acceptedAt ? new Date(r.acceptedAt).toISOString() : null,
+  accepted_by_name: r.acceptedByName ?? null,
 }));
+seed.staff_request_cell = [...requestCells].flatMap(([requestId, cells]) =>
+  cells.map((c) => ({ ...T, request_id: id(requestId), template_id: id(c.templateId), date: c.date, needed: c.needed })),
+);
+seed.staff_request_assignment = [...requestAssignments].flatMap(([requestId, ids]) => [...ids].map((a) => ({ ...T, request_id: id(requestId), assignment_id: id(a) })));
+
 seed.notification = notifications.map((n) => ({ id: id(n.id), ...T, user_id: id("u-marta"), kind: n.kind, title: n.title, href: n.href ?? null, at: new Date(n.at).toISOString(), read: n.read }));
 
 mkdirSync(dirname(out), { recursive: true });

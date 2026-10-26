@@ -25,6 +25,7 @@ export const correctionReasons: Reason[] = [
   { id: "r-clock-error", code: "clock-error", name: { pl: "Błąd odbicia", uk: "Помилка відмітки", ru: "Ошибка отметки", en: "Clock-in error" } },
   { id: "r-client-task", code: "client-task", name: { pl: "Praca poza zmianą na zlecenie klienta", uk: "Робота поза зміною на завдання клієнта", ru: "Работа вне смены по заданию клиента", en: "Off-shift work requested by client" } },
   { id: "r-forgot", code: "forgot", name: { pl: "Pracownik zapomniał się odbić", uk: "Працівник забув відмітитися", ru: "Работник забыл отметиться", en: "Worker forgot to clock" } },
+  { id: "r-dispute", code: "dispute", name: { pl: "Uzgodnione w sporze z klientem", uk: "Погоджено за спором клієнта", ru: "Согласовано по спору клиента", en: "Agreed in client dispute" } },
   { id: "r-absence-excused", code: "absence-excused", name: { pl: "Nieobecność usprawiedliwiona", uk: "Відсутність з поважної причини", ru: "Отсутствие по уважительной причине", en: "Excused absence" } },
 ];
 

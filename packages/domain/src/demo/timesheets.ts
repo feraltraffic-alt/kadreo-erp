@@ -9,9 +9,12 @@ import { createRng, hashString } from "./rng";
  */
 
 const STRYKOW_REVIEW = { projectId: "pr-strykow", from: "2026-10-19", to: "2026-10-25" };
+/** Polmarket disputed two days of the Poznań review period (12.2); the manager has to decide. */
+const POZNAN_DISPUTED = "pr-poznan";
 
 function clientStageFor(projectId: string, from: string, to: string): TimesheetClientStage {
   if (daysBetween(to, DEMO_TODAY) > 7) return { kind: "confirmed" };
+  if (projectId === POZNAN_DISPUTED) return { kind: "disputed", rows: 2 };
   if (projectId === STRYKOW_REVIEW.projectId && from === STRYKOW_REVIEW.from) return { kind: "not_sent" };
   const h = hashString(projectId) % 4;
   if (h === 0) return { kind: "waiting", until: "2026-10-29T23:59:00+01:00" };
@@ -70,6 +73,7 @@ export function buildTimesheet(projectId: string, from: string, to: string): Tim
   }
 
   if (isReview) applyReviewScenario(rows, project.managerName);
+  if (projectId === POZNAN_DISPUTED && daysBetween(to, DEMO_TODAY) <= 7) applyDisputeScenario(rows);
 
   // Mock-up order first, then by surname order of creation.
   const order = ["viktor", "oksana", "tomasz", "dmytro", "agnieszka"].map((k) => namedWorkerIds[k]);
@@ -109,6 +113,28 @@ function applyReviewScenario(rows: TimesheetRow[], managerName: string) {
   const dmytroTue = day("dmytro", "2026-10-20");
   if (dmytroTue) {
     dmytroTue.corrections.push({ id: "cor-dmytro-1020", at: "2026-10-21T08:40:00+02:00", byName: managerName, payableBefore: 7.5, payableAfter: 8, billableBefore: 7.5, billableAfter: 8, reasonId: "r-forgot", comment: "Wyjście potwierdzone przez lidera zmiany" });
+  }
+}
+
+/** Two disputed days in Poznań: hours the client does not recognise and a person it did not order. */
+function applyDisputeScenario(rows: TimesheetRow[]) {
+  const clean = rows
+    .slice()
+    .sort((a, b) => Number(a.workerId.slice(2)) - Number(b.workerId.slice(2)))
+    .map((r) => ({ r, d: [...r.days].reverse().find((d) => d.hasShift && !d.issue && d.date < DEMO_TODAY && d.corrections.length === 0) }))
+    .filter((x) => x.d);
+  const [first, second] = clean;
+  if (first?.d) {
+    first.d.disputed = true;
+    first.d.disputes = [
+      { id: `dsp-${first.r.workerId}-${first.d.date}`, reasonId: "d-too-many", clientHours: first.d.billableHours - 2, comment: "Według rejestru bramek pracownik wyszedł dwie godziny wcześniej.", createdAt: "2026-10-26T07:40:00+01:00", createdByName: "Katarzyna Wójcik", status: "open" },
+    ];
+  }
+  if (second?.d) {
+    second.d.disputed = true;
+    second.d.disputes = [
+      { id: `dsp-${second.r.workerId}-${second.d.date}`, reasonId: "d-not-ours", clientHours: 0, comment: "Tej osoby nie było w naszym zamówieniu na ten dzień.", createdAt: "2026-10-26T07:42:00+01:00", createdByName: "Katarzyna Wójcik", status: "open" },
+    ];
   }
 }
 

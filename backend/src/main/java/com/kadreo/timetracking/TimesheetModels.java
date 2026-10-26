@@ -17,7 +17,15 @@ public final class TimesheetModels {
     public record Issue(String kind, Integer minutes) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Day(LocalDate date, boolean hasShift, double plannedHours, double payableHours, double billableHours, String shiftLabel, Issue issue, List<Correction> corrections, Boolean disputed) {}
+    public record Resolution(String comment, String byName, OffsetDateTime at, Double payableHours, Double billableHours) {}
+
+    /** A client's objection to one day (12.2) and the manager's decision on it. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Dispute(UUID id, UUID reasonId, Double clientHours, String comment, OffsetDateTime createdAt, String createdByName, String status, Resolution resolution) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Day(LocalDate date, boolean hasShift, double plannedHours, double payableHours, double billableHours, String shiftLabel, Issue issue, List<Correction> corrections,
+            Boolean disputed, List<Dispute> disputes) {}
 
     /** One row per worker; the row id is the worker id. */
     public record Row(UUID id, UUID workerId, UUID positionId, List<Day> days) {}

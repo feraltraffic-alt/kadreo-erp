@@ -300,7 +300,10 @@ export interface TimesheetDay {
   shiftLabel?: string; // 06:00–14:00
   issue?: { kind: TimesheetIssueKind; minutes?: number };
   corrections: TimesheetCorrection[];
+  /** An open client dispute on this day. */
   disputed?: boolean;
+  /** Disputes on this day, oldest first; at most one is open. */
+  disputes?: TimesheetDispute[];
 }
 
 export type TimesheetRowStatus = "ready" | "issues" | "disputed" | "confirmed";
@@ -363,6 +366,12 @@ export interface Alert {
 
 export type StaffRequestStatus = "draft" | "new" | "in_progress" | "staffed" | "done" | "cancelled";
 
+/**
+ * Client request for staff (12.1). «В работе», «Укомплектована» and «Выполнена» follow from the
+ * request's shift cells: an accepted request adds `headcount` places to each of them, and new
+ * assignments in those cells count towards it until it has `headcount` people (X of N = the
+ * least staffed day).
+ */
 export interface StaffRequest {
   id: Id;
   number: number;
@@ -373,7 +382,59 @@ export interface StaffRequest {
   from: IsoDate;
   to: IsoDate;
   status: StaffRequestStatus;
+  /** Deadline for accepting the request (contract SLA, 12.1-15). */
   slaDueAt: IsoDateTime;
+  templateIds: Id[];
+  /** Requirements chosen by the client (12.1-07). */
+  competenceIds: Id[];
+  experiencedOnly: boolean;
+  clientRef?: string;
+  comment?: string;
+  contactName: string;
+  createdAt: IsoDateTime;
+  createdByName: string;
+  acceptedAt?: IsoDateTime;
+  acceptedByName?: string;
+  cancelledAt?: IsoDateTime;
+  cancelledByName?: string;
+  cancelReason?: string;
+}
+
+export interface StaffRequestCell {
+  templateId: Id;
+  date: IsoDate;
+  needed: number;
+  assigned: number;
+}
+
+export interface StaffRequestDetail {
+  request: StaffRequest;
+  site: Site;
+  client: Client;
+  projectId: Id;
+  templates: Pick<ShiftTemplate, "id" | "positionId" | "start" | "end">[];
+  /** Empty until the request is accepted. */
+  cells: StaffRequestCell[];
+  slaResponseHours: number;
+}
+
+/** A client's objection to one timesheet day (12.2) and the manager's decision on it. */
+export interface TimesheetDispute {
+  id: Id;
+  reasonId: Id;
+  /** Hours by the client's records, if given (12.2-11). */
+  clientHours?: number;
+  comment: string;
+  createdAt: IsoDateTime;
+  createdByName: string;
+  status: "open" | "agreed" | "rejected";
+  resolution?: {
+    comment: string;
+    byName: string;
+    at: IsoDateTime;
+    payableHours?: number;
+    billableHours?: number;
+  };
 }
 
 /* -------------------------------------------------------------------------- live view */

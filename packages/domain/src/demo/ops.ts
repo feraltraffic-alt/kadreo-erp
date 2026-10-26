@@ -195,13 +195,38 @@ export const alerts: Alert[] = [
   },
 ];
 
+/** Client requests for staff (12.1). Accepted ones get shift cells in ./requests.ts. */
 export const staffRequests: StaffRequest[] = [
-  { id: "sr-1197", number: 1197, siteId: "s-poznan", positionId: "p-picker", headcount: 8, assigned: 0, from: "2026-10-28", to: "2026-10-30", status: "new", slaDueAt: plusMinutes(DEMO_NOW_ISO, 125) },
-  { id: "sr-1196", number: 1196, siteId: "s-strykow", positionId: "p-forklift", headcount: 2, assigned: 1, from: "2026-11-02", to: "2026-11-06", status: "in_progress", slaDueAt: "2026-10-26T16:00:00+01:00" },
-  { id: "sr-1199", number: 1199, siteId: "s-leipzig", positionId: "p-line", headcount: 4, assigned: 0, from: "2026-11-02", to: "2026-11-13", status: "new", slaDueAt: "2026-10-27T07:30:00+01:00" },
-  { id: "sr-1200", number: 1200, siteId: "s-teresin", positionId: "p-packer", headcount: 6, assigned: 2, from: "2026-11-09", to: "2026-11-20", status: "in_progress", slaDueAt: "2026-10-27T11:00:00+01:00" },
-  { id: "sr-1190", number: 1190, siteId: "s-lodz", positionId: "p-sorter", headcount: 10, assigned: 10, from: "2026-10-26", to: "2026-10-31", status: "staffed", slaDueAt: "2026-10-22T12:00:00+02:00" },
-  { id: "sr-1182", number: 1182, siteId: "s-strykow", positionId: "p-packer", headcount: 6, assigned: 6, from: "2026-10-21", to: "2026-10-21", status: "done", slaDueAt: "2026-10-18T12:00:00+02:00" },
+  {
+    id: "sr-1197", number: 1197, siteId: "s-poznan", positionId: "p-picker", headcount: 8, assigned: 0, from: "2026-10-28", to: "2026-10-30", status: "new",
+    slaDueAt: plusMinutes(DEMO_NOW_ISO, 125), templateIds: ["tpl-poznan-1"], competenceIds: ["c-wms"], experiencedOnly: false, clientRef: "PM/2026/10/418",
+    comment: "Szczyt przed akcją promocyjną, potrzebne osoby z doświadczeniem w skanowaniu.", contactName: "Katarzyna Wójcik", createdAt: "2026-10-25T10:19:00+01:00", createdByName: "Katarzyna Wójcik",
+  },
+  {
+    id: "sr-1196", number: 1196, siteId: "s-strykow", positionId: "p-forklift", headcount: 2, assigned: 1, from: "2026-11-02", to: "2026-11-06", status: "in_progress",
+    slaDueAt: "2026-10-23T16:00:00+02:00", templateIds: ["tpl-strykow-3"], competenceIds: [], experiencedOnly: true, contactName: "Tomasz Lewandowski",
+    createdAt: "2026-10-22T16:00:00+02:00", createdByName: "Tomasz Lewandowski", acceptedAt: "2026-10-22T17:05:00+02:00", acceptedByName: "Marta Kowalska",
+  },
+  {
+    id: "sr-1199", number: 1199, siteId: "s-leipzig", positionId: "p-line", headcount: 4, assigned: 0, from: "2026-11-02", to: "2026-11-06", status: "new",
+    slaDueAt: "2026-10-27T07:30:00+01:00", templateIds: ["tpl-leipzig-1"], competenceIds: [], experiencedOnly: false, clientRef: "WA-4471",
+    comment: "Zusätzliche Linie wegen Modellwechsel.", contactName: "Jens Hoffmann", createdAt: "2026-10-26T07:30:00+01:00", createdByName: "Jens Hoffmann",
+  },
+  {
+    id: "sr-1200", number: 1200, siteId: "s-teresin", positionId: "p-packer", headcount: 6, assigned: 2, from: "2026-11-09", to: "2026-11-13", status: "in_progress",
+    slaDueAt: "2026-10-24T11:00:00+02:00", templateIds: ["tpl-teresin-2"], competenceIds: [], experiencedOnly: false, contactName: "Agata Zając",
+    createdAt: "2026-10-23T11:00:00+02:00", createdByName: "Agata Zając", acceptedAt: "2026-10-23T13:40:00+02:00", acceptedByName: "Marta Kowalska",
+  },
+  {
+    id: "sr-1190", number: 1190, siteId: "s-lodz", positionId: "p-sorter", headcount: 10, assigned: 10, from: "2026-10-26", to: "2026-10-31", status: "staffed",
+    slaDueAt: "2026-10-20T12:00:00+02:00", templateIds: ["tpl-lodz-1"], competenceIds: [], experiencedOnly: false, contactName: "Tomasz Lewandowski",
+    createdAt: "2026-10-19T12:00:00+02:00", createdByName: "Tomasz Lewandowski", acceptedAt: "2026-10-19T14:10:00+02:00", acceptedByName: "Marta Kowalska",
+  },
+  {
+    id: "sr-1182", number: 1182, siteId: "s-strykow", positionId: "p-packer", headcount: 6, assigned: 6, from: "2026-10-21", to: "2026-10-21", status: "done",
+    slaDueAt: "2026-10-16T12:00:00+02:00", templateIds: ["tpl-strykow-6"], competenceIds: [], experiencedOnly: false, clientRef: "NL-0921", contactName: "Tomasz Lewandowski",
+    createdAt: "2026-10-15T12:00:00+02:00", createdByName: "Tomasz Lewandowski", acceptedAt: "2026-10-15T15:30:00+02:00", acceptedByName: "Marta Kowalska",
+  },
 ];
 
 export const notifications: NotificationItem[] = [

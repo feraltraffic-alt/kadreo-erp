@@ -74,6 +74,9 @@ export function createHttpApi(opts: HttpApiOptions): Api {
     createUrgentRequest: (input) => post("/urgent-requests", input),
     urgentRequestStatus: (id) => get(`/urgent-requests/${id}`),
     staffRequests: () => get("/staff-requests"),
+    staffRequest: (id) => get(`/staff-requests/${id}`),
+    acceptStaffRequest: (id) => post(`/staff-requests/${id}/accept`),
+    cancelStaffRequest: (id, reason) => post(`/staff-requests/${id}/cancel`, { reason }),
     sitesWithTemplates: () => get("/sites-with-templates"),
 
     projects: (weekOf) => get("/projects", { weekOf }),
@@ -94,6 +97,8 @@ export function createHttpApi(opts: HttpApiOptions): Api {
     timesheetDay: (timesheetId, rowId, date) => get(`/timesheets/${timesheetId}/rows/${rowId}/days/${date}`),
     correct: (timesheetId, input) => post(`/timesheets/${timesheetId}/corrections`, input),
     sendToClient: (timesheetId) => post(`/timesheets/${timesheetId}/send-to-client`),
+    disputes: (q) => get("/timesheet-disputes", { status: q?.status }),
+    resolveDispute: (timesheetId, disputeId, input) => post(`/timesheets/${timesheetId}/disputes/${disputeId}/resolve`, input),
 
     workerDocuments: (workerId) => get(`/workers/${workerId}/documents`),
   };

@@ -83,6 +83,12 @@ public class ScheduleService {
     /** Domain event: the week's schedule was published; notifications go to assigned workers. */
     public record SchedulePublished(UUID tenantId, UUID projectId, LocalDate monday, Set<UUID> workerIds) {}
 
+    /**
+     * Published synchronously inside the transaction that created the assignment, so listeners
+     * (staff request progress) commit or roll back together with it.
+     */
+    public record AssignmentCreated(UUID assignmentId, UUID workerId, UUID templateId, LocalDate date) {}
+
     @Transactional(readOnly = true)
     public Schedule schedule(UUID projectId, LocalDate from, LocalDate to) {
         users.require("shift.schedule.read");
@@ -223,6 +229,7 @@ public class ScheduleService {
                 .param(a.id()).param(TenantContext.requireTenantId()).param(workerId).param(templateId).param(date).param(a.status()).param(a.source()).param(TenantContext.userId())
                 .update();
         audit.record("assignment", a.id(), "create", null, a);
+        events.publishEvent(new AssignmentCreated(a.id(), workerId, templateId, date));
         touch(t.projectId(), date);
         return a;
     }
@@ -234,6 +241,20 @@ public class ScheduleService {
         jdbc.sql("update assignment set status = 'cancelled', updated_at = now(), updated_by = ?, version = version + 1 where id = ?").param(TenantContext.userId()).param(id).update();
         audit.record("assignment", id, "cancel", a, null);
         touch(org.template(a.templateId()).projectId(), a.date());
+    }
+
+    /**
+     * Adds (or with a negative delta removes) places in one shift's plan, never below zero. For
+     * other modules acting under their own permission, such as accepting a client request.
+     */
+    @Transactional
+    public void addPlaces(UUID templateId, LocalDate date, int delta) {
+        jdbc.sql("""
+                insert into shift_plan (tenant_id, template_id, date, planned, cancelled) values (?, ?, ?, greatest(0, ?), false)
+                on conflict (template_id, date) do update set planned = greatest(0, shift_plan.planned + ?), cancelled = false""")
+                .param(TenantContext.requireTenantId()).param(templateId).param(date).param(delta).param(delta)
+                .update();
+        touch(org.template(templateId).projectId(), date);
     }
 
     @Transactional
@@ -279,6 +300,7 @@ public class ScheduleService {
                     .param(copy.id()).param(TenantContext.requireTenantId()).param(copy.workerId()).param(templateId).param(target).param(copy.source()).param(TenantContext.userId())
                     .update();
             ctx.add(copy);
+            events.publishEvent(new AssignmentCreated(copy.id(), copy.workerId(), templateId, target));
             copied++;
         }
         touch(t.projectId(), target);

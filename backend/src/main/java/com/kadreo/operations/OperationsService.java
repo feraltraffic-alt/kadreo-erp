@@ -116,22 +116,6 @@ public class OperationsService {
         return jdbc.sql(ALERT_SQL + " where id = ?").param(id).query(OperationsService::alert).single();
     }
 
-    /* ---------------------------------------------------------------- staff requests */
-
-    public record StaffRequest(UUID id, int number, UUID siteId, UUID positionId, int headcount, int assigned, LocalDate from, LocalDate to, String status, OffsetDateTime slaDueAt) {}
-
-    @Transactional(readOnly = true)
-    public List<StaffRequest> staffRequests() {
-        users.require("staffrequest.read");
-        var visible = dashboard.visibleSites(new DashboardService.Filter(null, null)).stream().map(Site::id).collect(Collectors.toSet());
-        return jdbc.sql("""
-                select id, number, site_id, position_id, headcount, assigned, date_from as "from", date_to as "to", status, sla_due_at
-                from staff_request order by number desc""")
-                .query(StaffRequest.class).list().stream()
-                .filter(r -> visible.contains(r.siteId()))
-                .toList();
-    }
-
     /* --------------------------------------------------------------- urgent requests */
 
     public record UrgentInput(UUID siteId, UUID templateId, LocalDate date, int headcount, String comment) {}

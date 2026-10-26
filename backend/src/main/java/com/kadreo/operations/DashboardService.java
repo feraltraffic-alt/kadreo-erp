@@ -41,8 +41,12 @@ public class DashboardService {
     private final CurrentUserService users;
     private final JdbcClient jdbc;
     private final Clock clock;
+    /** Lazy: the request service itself uses this service for site visibility. */
+    private final org.springframework.beans.factory.ObjectProvider<StaffRequestService> staffRequests;
 
-    public DashboardService(OrganizationService org, WorkforceService workforce, ClockQueries clocks, CurrentUserService users, JdbcClient jdbc, Clock clock) {
+    public DashboardService(OrganizationService org, WorkforceService workforce, ClockQueries clocks, CurrentUserService users, JdbcClient jdbc, Clock clock,
+            org.springframework.beans.factory.ObjectProvider<StaffRequestService> staffRequests) {
+        this.staffRequests = staffRequests;
         this.org = org;
         this.workforce = workforce;
         this.clocks = clocks;
@@ -159,9 +163,9 @@ public class DashboardService {
         List<SiteLive> live = live(sites);
         Set<UUID> siteIds = sites.stream().map(Site::id).collect(Collectors.toSet());
         List<OpenAlert> open = openAlerts().stream().filter(a -> siteIds.contains(a.siteId())).toList();
-        record Req(UUID siteId, OffsetDateTime slaDueAt) {}
-        List<Req> requests = jdbc.sql("select site_id, sla_due_at from staff_request where status in ('new', 'in_progress')").query(Req.class).list().stream()
-                .filter(r -> siteIds.contains(r.siteId())).toList();
+        List<StaffRequestService.StaffRequest> requests = staffRequests.getObject().views().stream()
+                .filter(r -> siteIds.contains(r.siteId()) && ("new".equals(r.status()) || "in_progress".equals(r.status())))
+                .toList();
         int late = live.stream().mapToInt(SiteLive::late).sum();
         return new Summary(
                 live.stream().mapToInt(SiteLive::actual).sum(),
@@ -173,7 +177,7 @@ public class DashboardService {
                 open.size(),
                 (int) open.stream().filter(a -> "critical".equals(a.severity())).count(),
                 requests.size(),
-                requests.stream().map(Req::slaDueAt).min(Comparator.naturalOrder()).orElse(null),
+                requests.stream().filter(r -> "new".equals(r.status())).map(StaffRequestService.StaffRequest::slaDueAt).min(Comparator.naturalOrder()).orElse(null),
                 OffsetDateTime.now(clock));
     }
 

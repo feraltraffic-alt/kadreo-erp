@@ -14,6 +14,8 @@ import com.kadreo.platform.web.ApiException;
 import com.kadreo.timetracking.TimesheetModels.ClientStage;
 import com.kadreo.timetracking.TimesheetModels.Correction;
 import com.kadreo.timetracking.TimesheetModels.Day;
+import com.kadreo.timetracking.TimesheetModels.Dispute;
+import com.kadreo.timetracking.TimesheetModels.Resolution;
 import com.kadreo.timetracking.TimesheetModels.Evidence;
 import com.kadreo.timetracking.TimesheetModels.Issue;
 import com.kadreo.timetracking.TimesheetModels.Row;
@@ -122,18 +124,43 @@ public class TimesheetService {
                 .collect(Collectors.groupingBy(C::entryId, Collectors.mapping(C::c, Collectors.toList())));
     }
 
-    private static Day day(Entry e, List<Correction> corrections) {
+    private static Day day(Entry e, List<Correction> corrections, List<Dispute> disputes) {
         Issue issue = e.issueKind() == null ? null : new Issue(e.issueKind(), e.issueMinutes());
-        return new Day(e.date(), true, e.plannedHours(), e.payableHours(), e.billableHours(), e.shiftLabel(), issue, corrections, e.disputed() ? Boolean.TRUE : null);
+        return new Day(e.date(), true, e.plannedHours(), e.payableHours(), e.billableHours(), e.shiftLabel(), issue, corrections, e.disputed() ? Boolean.TRUE : null,
+                disputes.isEmpty() ? null : disputes);
     }
 
     private static Day empty(LocalDate d) {
-        return new Day(d, false, 0, 0, 0, null, null, List.of(), null);
+        return new Day(d, false, 0, 0, 0, null, null, List.of(), null, null);
+    }
+
+    static final String DISPUTE_SQL = """
+            select id, entry_id, timesheet_id, reason_id, client_hours, comment, created_at, created_by_name, status, resolution_comment, resolved_by_name, resolved_at,
+                   payable_after, billable_after
+            from timesheet_dispute""";
+
+    static Dispute dispute(ResultSet rs) throws SQLException {
+        java.math.BigDecimal client = rs.getBigDecimal("client_hours");
+        java.math.BigDecimal pay = rs.getBigDecimal("payable_after");
+        java.math.BigDecimal bill = rs.getBigDecimal("billable_after");
+        String status = rs.getString("status");
+        Resolution resolution = "open".equals(status) ? null : new Resolution(Objects.requireNonNullElse(rs.getString("resolution_comment"), ""), rs.getString("resolved_by_name"),
+                rs.getObject("resolved_at", OffsetDateTime.class), pay == null ? null : pay.doubleValue(), bill == null ? null : bill.doubleValue());
+        return new Dispute(rs.getObject("id", UUID.class), rs.getObject("reason_id", UUID.class), client == null ? null : client.doubleValue(), rs.getString("comment"),
+                rs.getObject("created_at", OffsetDateTime.class), rs.getString("created_by_name"), status, resolution);
+    }
+
+    private Map<UUID, List<Dispute>> disputes(UUID timesheetId) {
+        record D(UUID entryId, Dispute d) {}
+        return jdbc.sql(DISPUTE_SQL + " where timesheet_id = ? order by created_at").param(timesheetId)
+                .query((rs, i) -> new D(rs.getObject("entry_id", UUID.class), dispute(rs))).list().stream()
+                .collect(Collectors.groupingBy(D::entryId, Collectors.mapping(D::d, Collectors.toList())));
     }
 
     private Timesheet assemble(Header h, Map<UUID, WorkerBrief> briefsOut) {
         List<Entry> entries = entries(h.id());
         Map<UUID, List<Correction>> corrections = corrections(h.id());
+        Map<UUID, List<Dispute>> disputes = disputes(h.id());
         Map<UUID, List<Entry>> byWorker = entries.stream().collect(Collectors.groupingBy(Entry::workerId, LinkedHashMap::new, Collectors.toList()));
         Map<UUID, WorkerBrief> briefs = workforce.briefs(byWorker.keySet());
         briefsOut.putAll(briefs);
@@ -143,7 +170,7 @@ public class TimesheetService {
             List<Day> days = new ArrayList<>();
             for (LocalDate d = h.periodFrom(); !d.isAfter(h.periodTo()); d = d.plusDays(1)) {
                 Entry e = byDate.get(d);
-                days.add(e == null ? empty(d) : day(e, corrections.getOrDefault(e.id(), List.of())));
+                days.add(e == null ? empty(d) : day(e, corrections.getOrDefault(e.id(), List.of()), disputes.getOrDefault(e.id(), List.of())));
             }
             UUID position = w.getValue().stream().min(Comparator.comparing(Entry::date)).map(Entry::positionId).orElseThrow();
             rows.add(new Row(w.getKey(), w.getKey(), position, days));
@@ -238,7 +265,7 @@ public class TimesheetService {
         users.require("timesheet.read");
         Entry e = entry(timesheetId, rowId, date);
         WorkerBrief w = workforce.briefs(List.of(e.workerId())).get(e.workerId());
-        Day day = day(e, corrections(timesheetId).getOrDefault(e.id(), List.of()));
+        Day day = day(e, corrections(timesheetId).getOrDefault(e.id(), List.of()), disputes(timesheetId).getOrDefault(e.id(), List.of()));
         Map<String, Object> worker = Map.of("id", w.id(), "firstName", w.firstName(), "lastName", w.lastName());
         return new DayDetail(rowId, worker, e.positionId(), day, evidence(e));
     }

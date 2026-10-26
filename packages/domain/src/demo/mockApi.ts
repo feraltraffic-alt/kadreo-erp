@@ -1,6 +1,7 @@
 import type {
   Api,
   AutoAssignJob,
+  DisputeListItem,
   AutoAssignRequest,
   CandidateView,
   DashboardFilter,
@@ -13,7 +14,7 @@ import { ApiError } from "../api";
 import { addDays, mondayOf, shiftHours } from "../dates";
 import { can, permissionsFor } from "../permissions";
 import { checkConstraints, scoreCandidate, type ScoringContext } from "../scoring";
-import type { Assignment, CurrentUser, RoleCode, SchedulePublishState, Site, Timesheet, Worker, WorkerDocument } from "../types";
+import type { Assignment, CurrentUser, RoleCode, SchedulePublishState, Site, StaffRequest, StaffRequestDetail, Timesheet, TimesheetDispute, Worker, WorkerDocument } from "../types";
 import {
   DEMO_NOW_ISO,
   DEMO_TODAY,
@@ -33,6 +34,7 @@ import {
   workers,
 } from "./generate";
 import { alerts, computeSiteLive, notifications, staffRequests } from "./ops";
+import { attachAssignment, cellsOf, progressCells, requestAssignments, requestCells, requestView } from "./requests";
 import { buildTimesheet, evidenceFor } from "./timesheets";
 
 const wait = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
@@ -180,6 +182,23 @@ function liveAll(f: DashboardFilter) {
     .map((s) => computeSiteLive(s.id, open));
 }
 
+function requestDetail(id: string): StaffRequestDetail {
+  const r: StaffRequest | undefined = staffRequests.find((x) => x.id === id);
+  if (!r) throw new ApiError(404, { code: "not_found" });
+  const site = sites.find((s) => s.id === r.siteId)!;
+  const project = projects.find((p) => p.siteId === site.id)!;
+  const contract = contracts.find((c) => c.id === project.contractId)!;
+  return {
+    request: requestView(r),
+    site,
+    client: clients.find((c) => c.id === site.clientId)!,
+    projectId: project.id,
+    templates: templates.filter((t) => t.projectId === project.id).map((t) => ({ id: t.id, positionId: t.positionId, start: t.start, end: t.end })),
+    cells: progressCells(r.id),
+    slaResponseHours: contract.sla.responseHours,
+  };
+}
+
 /* ------------------------------------------------------------------------------ API */
 
 export function createMockApi(): Api {
@@ -245,7 +264,7 @@ export function createMockApi(): Api {
       const live = liveAll(f);
       const siteIds = new Set(live.map((l) => l.siteId));
       const open = alerts.filter((a) => a.status !== "closed" && siteIds.has(a.siteId));
-      const req = staffRequests.filter((r) => (r.status === "new" || r.status === "in_progress") && siteIds.has(r.siteId));
+      const req = staffRequests.map(requestView).filter((r) => (r.status === "new" || r.status === "in_progress") && siteIds.has(r.siteId));
       return {
         onShiftNow: live.reduce((s, l) => s + l.actual, 0),
         plannedNow: live.reduce((s, l) => s + l.planned, 0),
@@ -256,7 +275,8 @@ export function createMockApi(): Api {
         openAlerts: open.length,
         criticalAlerts: open.filter((a) => a.severity === "critical").length,
         staffRequestsOpen: req.length,
-        ...(req.length ? { nearestSlaDueAt: req.map((r) => r.slaDueAt).sort()[0]! } : {}),
+        // The SLA counts until a request is accepted (12.1-15), so only new requests have a deadline.
+        ...(req.some((r) => r.status === "new") ? { nearestSlaDueAt: req.filter((r) => r.status === "new").map((r) => r.slaDueAt).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]! } : {}),
         updatedAt: DEMO_NOW_ISO,
       };
     },
@@ -312,7 +332,49 @@ export function createMockApi(): Api {
     async staffRequests() {
       requirePermission("staffrequest.read");
       await wait();
-      return clone(staffRequests);
+      return clone(staffRequests.map(requestView).sort((a, b) => b.number - a.number));
+    },
+    async staffRequest(id) {
+      requirePermission("staffrequest.read");
+      await wait(100, 220);
+      return clone(requestDetail(id));
+    },
+    async acceptStaffRequest(id) {
+      requirePermission("staffrequest.manage");
+      await wait(250, 450);
+      const r = staffRequests.find((x) => x.id === id);
+      if (!r) throw new ApiError(404, { code: "not_found" });
+      if (r.status !== "new") throw new ApiError(409, { code: "conflict", byName: r.acceptedByName ?? "", at: r.acceptedAt ?? "" });
+      const cells = cellsOf(r, false);
+      for (const c of cells) {
+        const p = plans.find((x) => x.templateId === c.templateId && x.date === c.date);
+        if (p) {
+          p.planned += c.needed;
+          p.cancelled = false;
+        } else plans.push({ templateId: c.templateId, date: c.date, planned: c.needed });
+        touchSchedule(templates.find((t) => t.id === c.templateId)!.projectId, c.date);
+      }
+      requestCells.set(r.id, cells);
+      requestAssignments.set(r.id, new Set());
+      Object.assign(r, { status: "in_progress", acceptedAt: DEMO_NOW_ISO, acceptedByName: currentUser().fullName });
+      return clone(requestDetail(id));
+    },
+    async cancelStaffRequest(id, reason) {
+      requirePermission("staffrequest.manage");
+      await wait(200, 400);
+      const r = staffRequests.find((x) => x.id === id);
+      if (!r) throw new ApiError(404, { code: "not_found" });
+      const view = requestView(r);
+      if (!["new", "in_progress", "staffed", "draft"].includes(view.status)) throw new ApiError(409, { code: "conflict", byName: "", at: "" });
+      // Places added by the request are taken out of future plans; assignments stay for the manager to review.
+      for (const c of requestCells.get(r.id) ?? []) {
+        if (c.date < DEMO_TODAY) continue;
+        const p = plans.find((x) => x.templateId === c.templateId && x.date === c.date);
+        if (p) p.planned = Math.max(0, p.planned - c.needed);
+        touchSchedule(templates.find((t) => t.id === c.templateId)!.projectId, c.date);
+      }
+      Object.assign(r, { status: "cancelled", assigned: view.assigned, cancelledAt: DEMO_NOW_ISO, cancelledByName: currentUser().fullName, cancelReason: reason });
+      return clone(requestDetail(id));
     },
     async sitesWithTemplates() {
       await wait(60, 120);
@@ -372,6 +434,7 @@ export function createMockApi(): Api {
       if (violations.length) throw new ApiError(422, { code: "constraint", violations });
       const a: Assignment = { id: `as-new-${Date.now()}-${Math.round(Math.random() * 1e6)}`, workerId, templateId, date, status: "proposed", source: source ?? "manual" };
       assignments.push(a);
+      attachAssignment(a);
       touchSchedule(tpl.projectId, date);
       return clone(a);
     },
@@ -554,6 +617,59 @@ export function createMockApi(): Api {
       const until = new Date(new Date(DEMO_NOW_ISO).getTime() + contract.autoAcceptHours * 3600000).toISOString();
       t.clientStage = { kind: "waiting", until };
       return clone(t);
+    },
+    async disputes(q) {
+      requirePermission("timesheet.read");
+      await wait();
+      const out: DisputeListItem[] = [];
+      for (const p of projects) {
+        const { from, to } = periodFor(p.id, addDays(DEMO_TODAY, -7));
+        const t = getTimesheet(p.id, from, to);
+        const site = siteOfProject(p.id);
+        for (const r of t.rows) {
+          for (const d of r.days) {
+            for (const dispute of d.disputes ?? []) {
+              if (q?.status !== "all" && dispute.status !== "open") continue;
+              const w = workers.find((x) => x.id === r.workerId)!;
+              out.push({ dispute, timesheetId: t.id, projectId: p.id, siteName: site.name, clientName: clients.find((c) => c.id === site.clientId)!.shortName, from, to, rowId: r.id, worker: { id: w.id, firstName: w.firstName, lastName: w.lastName }, positionId: r.positionId, date: d.date, payableHours: d.payableHours, billableHours: d.billableHours });
+            }
+          }
+        }
+      }
+      return clone(out.sort((a, b) => a.dispute.createdAt.localeCompare(b.dispute.createdAt)));
+    },
+    async resolveDispute(timesheetId, disputeId, input) {
+      requirePermission("timesheet.dispute.resolve");
+      await wait(200, 400);
+      const t = timesheetById(timesheetId);
+      const day = t.rows.flatMap((r) => r.days).find((d) => d.disputes?.some((x) => x.id === disputeId));
+      const dispute = day?.disputes?.find((x) => x.id === disputeId);
+      if (!day || !dispute) throw new ApiError(404, { code: "not_found" });
+      if (dispute.status !== "open") throw new ApiError(409, { code: "conflict", byName: dispute.resolution?.byName ?? "", at: dispute.resolution?.at ?? "" });
+      if (input.decision === "reject" && !input.comment.trim()) throw new ApiError(400, { code: "bad_request", message: "comment" });
+      const at = DEMO_NOW_ISO;
+      const byName = currentUser().fullName;
+      const resolution: NonNullable<TimesheetDispute["resolution"]> = { comment: input.comment, byName, at };
+      if (input.decision === "agree") {
+        const payable = input.payableHours ?? dispute.clientHours ?? day.payableHours;
+        const billable = input.billableHours ?? dispute.clientHours ?? day.billableHours;
+        day.corrections.push({ id: `cor-${Date.now()}`, at, byName, payableBefore: day.payableHours, payableAfter: payable, billableBefore: day.billableHours, billableAfter: billable, reasonId: "r-dispute", comment: input.comment });
+        day.payableHours = payable;
+        day.billableHours = billable;
+        Object.assign(resolution, { payableHours: payable, billableHours: billable });
+      }
+      dispute.status = input.decision === "agree" ? "agreed" : "rejected";
+      dispute.resolution = resolution;
+      day.disputed = false;
+      // With every dispute decided, the timesheet goes back to the client with a new deadline.
+      const open = t.rows.filter((r) => r.days.some((d) => d.disputed)).length;
+      if (t.clientStage.kind === "disputed") {
+        if (open === 0) {
+          const contract = contracts.find((c) => c.id === projects.find((p) => p.id === t.projectId)!.contractId)!;
+          t.clientStage = { kind: "waiting", until: new Date(new Date(DEMO_NOW_ISO).getTime() + contract.autoAcceptHours * 3600000).toISOString() };
+        } else t.clientStage = { kind: "disputed", rows: open };
+      }
+      return clone(dispute);
     },
     async workerDocuments(workerId) {
       await wait(60, 120);

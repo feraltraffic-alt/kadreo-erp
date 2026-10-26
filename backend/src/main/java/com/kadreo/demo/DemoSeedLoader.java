@@ -108,6 +108,11 @@ class DemoSeedLoader implements ApplicationRunner {
         return n;
     }
 
+    private static boolean isScalarArray(JsonNode v) {
+        for (JsonNode x : v) if (x.isContainerNode()) return false;
+        return true;
+    }
+
     private int insertGroup(Connection c, String table, Map<String, String> special, List<String> keys, List<JsonNode> rows) throws SQLException {
         // Map export keys to columns: lat/lng → location (site) or home (worker), role_code → role_id.
         List<String> columns = new ArrayList<>();
@@ -146,7 +151,8 @@ class DemoSeedLoader implements ApplicationRunner {
                             ps.setObject(i++, "{\"type\":\"Polygon\",\"coordinates\":[" + v + "]}", Types.OTHER);
                         } else if (v == null || v.isNull()) {
                             ps.setNull(i++, Types.OTHER);
-                        } else if (v.isArray() && key.equals("clock_methods")) {
+                        } else if (v.isArray() && isScalarArray(v)) {
+                            // Arrays of plain values are PostgreSQL arrays (text[], uuid[]); others are jsonb.
                             List<String> items = new ArrayList<>();
                             v.forEach(x -> items.add(x.asText()));
                             ps.setObject(i++, "{" + String.join(",", items) + "}", Types.OTHER);

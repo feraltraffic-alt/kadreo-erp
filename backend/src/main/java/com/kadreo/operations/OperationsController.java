@@ -8,7 +8,6 @@ import com.kadreo.operations.OperationsService.FilterOptions;
 import com.kadreo.operations.OperationsService.NavCounters;
 import com.kadreo.operations.OperationsService.Notification;
 import com.kadreo.operations.OperationsService.SearchResults;
-import com.kadreo.operations.OperationsService.StaffRequest;
 import com.kadreo.operations.OperationsService.UrgentInput;
 import com.kadreo.operations.OperationsService.UrgentResult;
 import java.util.List;
@@ -59,11 +58,6 @@ class OperationsController {
     @PostMapping("/alerts/{id}/take")
     Alert take(@PathVariable UUID id) {
         return ops.take(id);
-    }
-
-    @GetMapping("/staff-requests")
-    List<StaffRequest> staffRequests() {
-        return ops.staffRequests();
     }
 
     @PostMapping("/urgent-requests")

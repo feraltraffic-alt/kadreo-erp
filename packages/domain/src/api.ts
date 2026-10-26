@@ -19,6 +19,8 @@ import type {
   Site,
   SiteLive,
   StaffRequest,
+  StaffRequestDetail,
+  TimesheetDispute,
   Tenant,
   Timesheet,
   TimesheetCorrection,
@@ -166,10 +168,36 @@ export interface TimesheetListItem {
   timesheet: Pick<Timesheet, "clientStage" | "managerConfirmed" | "teamLeaderDaysConfirmed">;
 }
 
+export interface DisputeListItem {
+  dispute: TimesheetDispute;
+  timesheetId: string;
+  projectId: string;
+  siteName: string;
+  clientName: string;
+  from: IsoDate;
+  to: IsoDate;
+  rowId: string;
+  worker: Pick<Worker, "id" | "firstName" | "lastName">;
+  positionId: string;
+  date: IsoDate;
+  payableHours: number;
+  billableHours: number;
+}
+
+export interface DisputeResolution {
+  decision: "agree" | "reject";
+  /** For «agree»: the corrected hours (default: the client's hours). */
+  payableHours?: number;
+  billableHours?: number;
+  /** Required for «reject»; visible to the client. */
+  comment: string;
+}
+
 export type ApiErrorBody =
   | { code: "constraint"; violations: ConstraintViolation[] }
   | { code: "forbidden"; permission: string }
   | { code: "not_found" }
+  | { code: "bad_request"; message: string }
   | { code: "conflict"; byName: string; at: string };
 
 export class ApiError extends Error {
@@ -199,7 +227,10 @@ export interface Api {
   takeAlert(id: string): Promise<Alert>; // POST /api/v1/alerts/{id}/take
   createUrgentRequest(input: UrgentRequestInput): Promise<UrgentRequestResult>; // POST /api/v1/urgent-requests
   urgentRequestStatus(id: string): Promise<UrgentRequestResult>;
-  staffRequests(): Promise<StaffRequest[]>;
+  staffRequests(): Promise<StaffRequest[]>; // GET /api/v1/staff-requests
+  staffRequest(id: string): Promise<StaffRequestDetail>; // GET /api/v1/staff-requests/{id}
+  acceptStaffRequest(id: string): Promise<StaffRequestDetail>; // POST …/{id}/accept
+  cancelStaffRequest(id: string, reason: string): Promise<StaffRequestDetail>; // POST …/{id}/cancel
   sitesWithTemplates(): Promise<{ site: Site; templates: { id: string; positionId: string; start: string; end: string }[] }[]>;
 
   /* workforce 9.1 */
@@ -222,6 +253,8 @@ export interface Api {
   timesheetDay(timesheetId: string, rowId: string, date: IsoDate): Promise<TimesheetDayDetail>; // GET /api/v1/timesheet-entries/{id}
   correct(timesheetId: string, input: CorrectionInput): Promise<TimesheetCorrection>; // POST …/corrections
   sendToClient(timesheetId: string): Promise<Timesheet>; // POST /api/v1/timesheets/{id}/send-to-client
+  disputes(q?: { status?: "open" | "all" }): Promise<DisputeListItem[]>; // GET /api/v1/timesheet-disputes
+  resolveDispute(timesheetId: string, disputeId: string, input: DisputeResolution): Promise<TimesheetDispute>; // POST …/disputes/{id}/resolve
 
   /* helpers for screens */
   workerDocuments(workerId: string): Promise<WorkerDocument[]>;
