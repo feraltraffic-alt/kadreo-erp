@@ -1,5 +1,6 @@
 # Local stand: PostgreSQL 16 + PostGIS, the backend with the demo tenant, the back office.
-#   docker compose up --build      → back office http://localhost:8081, client portal http://localhost:8082
+#   docker compose up --build      → back office http://localhost:8081, client portal http://localhost:8082,
+#                                     mobile app and kiosk (web build) http://localhost:8083
 #                                     (API docs: http://localhost:8080/swagger-ui.html)
 name: kadreo
 
@@ -34,7 +35,7 @@ services:
       DB_APP_PASSWORD: ${DB_APP_PASSWORD:-kadreo_app}
       DB_OWNER_USER: kadreo
       DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-kadreo}
-      CORS_ORIGINS: http://localhost:8081,http://localhost:8082,http://localhost:5173,http://localhost:5174
+      CORS_ORIGINS: http://localhost:8081,http://localhost:8082,http://localhost:8083,http://localhost:5173,http://localhost:5174,http://localhost:8084
     ports:
       - "8080:8080"
 
@@ -55,6 +56,15 @@ services:
       - backend
     ports:
       - "8082:80"
+
+  mobile:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "8083:80"
 
 volumes:
   db-data:

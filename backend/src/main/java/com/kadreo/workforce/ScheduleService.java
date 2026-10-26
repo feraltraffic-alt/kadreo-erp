@@ -201,6 +201,25 @@ public class ScheduleService {
         return out.size() > 20 ? out.subList(0, 20) : out;
     }
 
+    /**
+     * The best candidates for a shift without the planner's permission check: urgent offers sent
+     * by the system on behalf of a team leader or manager (11.1-06, 14.2 process 1).
+     */
+    @Transactional(readOnly = true)
+    public List<UUID> rankedCandidates(UUID templateId, LocalDate date, int limit) {
+        ShiftTemplate t = org.template(templateId);
+        Site site = org.site(org.project(t.projectId()).siteId());
+        Context ctx = context(date, date);
+        return workforce.workers().stream()
+                .filter(w -> w.positionIds().contains(t.positionId()))
+                .filter(w -> AssignmentRules.check(ctx, w, site, t, date).isEmpty())
+                .map(w -> AssignmentRules.score(ctx, w, site, t, date))
+                .sorted(Comparator.comparingInt(Score::score).reversed())
+                .limit(limit)
+                .map(Score::workerId)
+                .toList();
+    }
+
     /** Workers who could take the shift right now (urgent replacement offers, 11.1-06). */
     @Transactional(readOnly = true)
     public int eligibleCount(UUID templateId, LocalDate date) {
@@ -232,6 +251,38 @@ public class ScheduleService {
         events.publishEvent(new AssignmentCreated(a.id(), workerId, templateId, date));
         touch(t.projectId(), date);
         return a;
+    }
+
+    /**
+     * A confirmed assignment from an accepted urgent offer (14.3-05): the hard constraints are
+     * checked again at the moment of acceptance; {@code replacesId} links the no-show it replaces.
+     */
+    @Transactional
+    public Assignment assignAccepted(UUID workerId, UUID templateId, LocalDate date, UUID replacesId) {
+        ShiftTemplate t = org.template(templateId);
+        Site site = org.site(org.project(t.projectId()).siteId());
+        Worker w = workforce.worker(workerId);
+        List<Constraints> violations = AssignmentRules.check(context(date, date), w, site, t, date);
+        if (!violations.isEmpty()) throw ApiException.constraint(violations);
+        Assignment a = new Assignment(Ids.newId(), workerId, templateId, date, "confirmed", "manual", replacesId);
+        jdbc.sql("insert into assignment (id, tenant_id, worker_id, template_id, date, status, source, replaces_id, created_by) values (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                .param(a.id()).param(TenantContext.requireTenantId()).param(workerId).param(templateId).param(date).param(a.status()).param(a.source()).param(replacesId)
+                .param(TenantContext.userId())
+                .update();
+        audit.record("assignment", a.id(), "create", null, a);
+        events.publishEvent(new AssignmentCreated(a.id(), workerId, templateId, date));
+        touch(t.projectId(), date);
+        return a;
+    }
+
+    /** The worker confirms or declines a proposed shift (14.1-13). Returns false if it was not theirs or not proposed. */
+    @Transactional
+    public boolean respond(UUID assignmentId, UUID workerId, boolean accept, String reason) {
+        int n = jdbc.sql("update assignment set status = ?, updated_at = now(), updated_by = ?, version = version + 1 where id = ? and worker_id = ? and status = 'proposed'")
+                .param(accept ? "confirmed" : "declined").param(TenantContext.userId()).param(assignmentId).param(workerId)
+                .update();
+        if (n == 1) audit.record("assignment", assignmentId, accept ? "confirm" : "decline", null, reason == null ? Map.of() : Map.of("reason", reason));
+        return n == 1;
     }
 
     @Transactional

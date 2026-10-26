@@ -168,6 +168,12 @@ public class WorkforceService {
                 .param(from).param(to).query(Assignment.class).list();
     }
 
+    /** A worker's assignments in a date window (the worker app's schedule, 14.1, 14.5). */
+    public List<Assignment> assignmentsOfWorker(UUID workerId, LocalDate from, LocalDate to) {
+        return jdbc.sql(ASSIGNMENT_SQL + " where worker_id = ? and date between ? and ? order by date")
+                .param(workerId).param(from).param(to).query(Assignment.class).list();
+    }
+
     public Assignment assignment(UUID id) {
         return jdbc.sql(ASSIGNMENT_SQL + " where id = ?").param(id).query(Assignment.class).optional().orElseThrow(com.kadreo.platform.web.ApiException::notFound);
     }

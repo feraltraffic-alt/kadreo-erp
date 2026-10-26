@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Kadreo",
+    "slug": "kadreo",
+    "scheme": "kadreo",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.kadreo.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Фото подтверждает начало смены; киоск сканирует QR-код из приложения.",
+        "NSLocationWhenInUseUsageDescription": "Геопозиция проверяется один раз в момент отметки, постоянного отслеживания нет."
+      }
+    },
+    "android": {
+      "package": "app.kadreo.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#C2410C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "Kadreo"
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Фото подтверждает начало смены; киоск сканирует QR-код из приложения." }],
+      ["expo-location", { "locationWhenInUsePermission": "Геопозиция проверяется один раз в момент отметки, постоянного отслеживания нет." }]
+    ]
+  }
+}

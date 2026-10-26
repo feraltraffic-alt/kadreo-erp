@@ -286,8 +286,8 @@ public class TimesheetService {
     private List<Evidence> evidence(Entry e) {
         if (e.assignmentId() == null) return List.of();
         List<Ev> events = jdbc.sql("""
-                select c.type, c.server_time as at, c.source, c.gps_accuracy_m as gps, c.photo, c.face_match as face, c.gate, c.kiosk, c.qr_point as qr, s.time_zone as tz
-                from clock_event c join site s on s.id = c.site_id where c.assignment_id = ? order by c.server_time""")
+                select c.type, c.at, c.source, c.gps_accuracy_m as gps, c.photo, c.face_match as face, c.gate, c.kiosk, c.qr_point as qr, s.time_zone as tz
+                from clock_event c join site s on s.id = c.site_id where c.assignment_id = ? and c.status <> 'rejected' order by c.at""")
                 .param(e.assignmentId())
                 .query(Ev.class).list();
         List<Evidence> out = new ArrayList<>();

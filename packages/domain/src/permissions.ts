@@ -23,6 +23,7 @@ const ops: Permission[] = [
   "staffrequest.read",
   "staffrequest.manage",
   "timesheet.dispute.resolve",
+  "clockevent.manual.approve",
   "site.read",
   "site.manage",
   "client.manage",
@@ -40,8 +41,9 @@ export const rolePermissions: Record<RoleCode, Permission[]> = {
   EXECUTIVE: ["dashboard.read", "alert.read", "shift.schedule.read", "timesheet.read", "staffrequest.read", "site.read", "contract.read", "worker.read", "invoice.read", "payroll.run.read", "analytics.read", "motivation.read", "audit.read"],
   OPS_MANAGER: ops,
   SITE_MANAGER: ops.filter((p) => !["client.manage", "site.manage", "contract.rates.read", "alert.rule.manage"].includes(p)),
-  TEAM_LEADER: ["shift.schedule.read", "timesheet.read", "clockevent.read"],
-  WORKER: [],
+  // The team leader is a worker too (own clock-ins), plus the brigade (14.2).
+  TEAM_LEADER: ["shift.schedule.read", "timesheet.read", "clockevent.read", "clockevent.self", "clockevent.manual.create", "output.record", "team.read"],
+  WORKER: ["clockevent.self"],
   HR: ["worker.read", "worker.create", "worker.update", "worker.document.manage", "report.compliance", "motivation.read", "motivation.campaign.manage", "shift.schedule.read", "timesheet.read"],
   PAYROLL: ["payroll.run.read", "payroll.run.execute", "payroll.payslip.read", "payment.batch.prepare", "worker.read", "timesheet.read", "report.compliance"],
   FINANCE: ["invoice.read", "invoice.generate", "invoice.issue", "bank.statement.import", "bank.connection.manage", "payment.batch.prepare", "contract.read", "contract.rates.read", "contract.manage", "timesheet.read", "analytics.read"],
@@ -51,7 +53,7 @@ export const rolePermissions: Record<RoleCode, Permission[]> = {
   CLIENT_ADMIN: ["portal.read", "staffrequest.create", "timesheet.client.confirm", "client.users.manage"],
   CLIENT_MANAGER: ["portal.read", "staffrequest.create", "timesheet.client.confirm"],
   CLIENT_VIEWER: ["portal.read"],
-  KIOSK: [],
+  KIOSK: ["kiosk.clock"],
 };
 
 export function permissionsFor(role: RoleCode): Permission[] {

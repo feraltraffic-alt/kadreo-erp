@@ -97,14 +97,14 @@ jobs:
       - run: pnpm --filter @kadreo/backoffice build
 
   stack:
-    name: Docker Compose stack (db + backend + web)
+    name: Docker Compose stack (db + backend + web + portal + mobile)
     # Playwright browsers do not support Ubuntu 26.04 yet.
     runs-on: ubuntu-24.04
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v5
       - name: Build and start
-        run: docker compose up -d --build --wait db && docker compose up -d --build backend web portal
+        run: docker compose up -d --build --wait db && docker compose up -d --build backend web portal mobile
       - name: Wait for the backend (seed loads on first start)
         run: |
           for i in $(seq 1 90); do
@@ -123,6 +123,9 @@ jobs:
           get /timesheets | jq -e 'length == 23'
           curl -fs http://localhost:8081/ | grep -q '<div id="root">'
           curl -fs http://localhost:8082/ | grep -q '<div id="root">'
+          curl -fs http://localhost:8083/ | grep -q 'id="root"'
+          WT=$(curl -fs -X POST http://localhost:8083/api/v1/dev/token -H 'Content-Type: application/json' -d '{"email":"viktor.hnatiuk@kadreo-demo.app"}' | jq -r .accessToken)
+          curl -fs -H "Authorization: Bearer $WT" http://localhost:8083/api/v1/me/today | jq -e '.state == "on_shift" and .shift.start == "06:00"'
           echo "stack OK"
       - name: Browser flow against the stack
         run: |
@@ -134,6 +137,8 @@ jobs:
           cat /tmp/e2e.log
           python e2e/portal_flow.py http://localhost:8082 http://localhost:8081 > /tmp/portal.log 2>&1 || report "portal flow" /tmp/portal.log
           cat /tmp/portal.log
+          python e2e/mobile_flow.py http://localhost:8083 > /tmp/mobile.log 2>&1 || report "mobile flow" /tmp/mobile.log
+          cat /tmp/mobile.log
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4

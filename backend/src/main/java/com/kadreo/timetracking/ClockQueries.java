@@ -24,7 +24,7 @@ public class ClockQueries {
     public Map<UUID, OffsetDateTime> firstClockIns(Collection<UUID> assignmentIds) {
         Map<UUID, OffsetDateTime> out = new HashMap<>();
         if (assignmentIds.isEmpty()) return out;
-        jdbc.sql("select assignment_id, min(server_time) from clock_event where type = 'in' and assignment_id = any(?) group by assignment_id")
+        jdbc.sql("select assignment_id, min(at) from clock_event where type = 'in' and status <> 'rejected' and assignment_id = any(?) group by assignment_id")
                 .param(assignmentIds.toArray(UUID[]::new))
                 .query((rs, i) -> out.put(rs.getObject(1, UUID.class), rs.getObject(2, OffsetDateTime.class)))
                 .list();
@@ -42,8 +42,8 @@ public class ClockQueries {
                 join assignment a on a.id = c.assignment_id
                 join shift_template t on t.id = a.template_id
                 join site s on s.id = c.site_id
-                where c.type = 'in' and a.date = ? and c.site_id = any(?) and a.replaces_id is null
-                  and (c.server_time at time zone s.time_zone)::time > t.start_time + make_interval(mins => s.late_threshold_min)
+                where c.type = 'in' and c.status <> 'rejected' and a.date = ? and c.site_id = any(?) and a.replaces_id is null
+                  and (c.at at time zone s.time_zone)::time > t.start_time + make_interval(mins => s.late_threshold_min)
                   and t.start_time <= (?::timestamptz at time zone s.time_zone)::time""")
                 .param(day).param(siteIds.toArray(UUID[]::new)).param(upTo)
                 .query(Integer.class).single();

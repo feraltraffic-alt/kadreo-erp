@@ -74,7 +74,7 @@ public class DashboardService {
     }
 
     /** Sites the user may see (scope, 3.2) that match the filter. */
-    List<Site> visibleSites(Filter f) {
+    public List<Site> visibleSites(Filter f) {
         CurrentUser u = users.current();
         return org.sites().stream()
                 .filter(s -> u.scope().wholeTenant() || u.scope().siteIds().contains(s.id()) || u.scope().regions().contains(s.region()))

@@ -5,5 +5,9 @@ kadreo:
     # Fixed clock so the demo matches the reference mock-ups: Monday 26.10.2026 08:14:52 Warsaw.
     now: ${DEMO_NOW:2026-10-26T07:14:52Z}
     seed: ${DEMO_SEED:true}
-    # Urgent replacement offers have no worker app yet: simulate one acceptance every 3 s.
+    # Presentation stand: besides real acceptances from the worker app, one more person accepts
+    # an urgent request every 3 s so the back-office progress screen moves without phones.
     simulate-urgent-acceptance: true
+  mobile:
+    # The app's demo offers a valid QR of the site point «вход 1» (14.1-10).
+    demo-qr: true

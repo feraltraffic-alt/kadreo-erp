@@ -16,8 +16,8 @@
     "@kadreo/ui": "workspace:*",
     "@tanstack/react-query": "^5.80.0",
     "lucide-react": "^0.500.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-router": "^7.6.0"
   },
   "devDependencies": {

@@ -36,6 +36,8 @@ import {
 import { alerts, computeSiteLive, notifications, staffRequests } from "./ops";
 import { attachAssignment, cellsOf, progressCells, requestAssignments, requestCells, requestView } from "./requests";
 import { evidenceFor, getTimesheet, periodFor, timesheetById } from "./timesheets";
+// The mobile demo renames today's Stryków team leader; load it so every screen shows the same names.
+import "./mobileData";
 
 const wait = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 const clone = <T,>(x: T): T => structuredClone(x);

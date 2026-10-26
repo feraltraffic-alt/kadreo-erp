@@ -1,4 +1,5 @@
 import type { CandidateScore, ConstraintViolation } from "./scoring";
+import type { ClockRejectReason } from "./mobile";
 import type {
   Alert,
   Locale,
@@ -198,7 +199,10 @@ export type ApiErrorBody =
   | { code: "forbidden"; permission: string }
   | { code: "not_found" }
   | { code: "bad_request"; message: string }
-  | { code: "conflict"; byName: string; at: string };
+  | { code: "conflict"; byName: string; at: string }
+  | { code: "clock_rejected"; reason: ClockRejectReason; distanceM?: number; opensAt?: string }
+  | { code: "kiosk_auth"; attemptsLeft: number; lockedUntil?: string }
+  | { code: "taken" };
 
 export class ApiError extends Error {
   constructor(public status: number, public body: ApiErrorBody) {

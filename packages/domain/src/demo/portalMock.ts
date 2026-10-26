@@ -1,3 +1,5 @@
+// Same names as the other demos (the mobile demo renames today's Stryków team leader).
+import "./mobileData";
 import { ApiError } from "../api";
 import { addDays, shiftHours, toMinutes, weekdayIndex } from "../dates";
 import { permissionsFor } from "../permissions";

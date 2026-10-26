@@ -45,9 +45,11 @@ public class OperationsService {
     private final AuditLog audit;
     private final Clock clock;
     private final boolean simulateAcceptance;
+    private final UrgentOffers offers;
 
     public OperationsService(JdbcClient jdbc, OrganizationService org, WorkforceService workforce, ScheduleService schedule, DashboardService dashboard, CurrentUserService users,
-            AuditLog audit, Clock clock, @Value("${kadreo.demo.simulate-urgent-acceptance:false}") boolean simulateAcceptance) {
+            AuditLog audit, Clock clock, @Value("${kadreo.demo.simulate-urgent-acceptance:false}") boolean simulateAcceptance, UrgentOffers offers) {
+        this.offers = offers;
         this.jdbc = jdbc;
         this.org = org;
         this.workforce = workforce;
@@ -118,7 +120,7 @@ public class OperationsService {
 
     /* --------------------------------------------------------------- urgent requests */
 
-    public record UrgentInput(UUID siteId, UUID templateId, LocalDate date, int headcount, String comment) {}
+    public record UrgentInput(UUID siteId, UUID templateId, LocalDate date, int headcount, String comment, Integer bonusPoints) {}
 
     public record UrgentResult(UUID id, int offeredTo, int accepted, int needed) {}
 
@@ -130,19 +132,14 @@ public class OperationsService {
         if (in.siteId() == null || in.templateId() == null || in.date() == null) throw ApiException.badRequest("siteId, templateId and date are required");
         var tpl = org.template(in.templateId());
         if (!org.project(tpl.projectId()).siteId().equals(in.siteId())) throw ApiException.badRequest("template_site_mismatch");
-        int offered = Math.min(schedule.eligibleCount(in.templateId(), in.date()), in.headcount() * 4);
-        UUID id = Ids.newId();
-        jdbc.sql("insert into urgent_request (id, tenant_id, site_id, template_id, date, headcount, comment, offered_to, created_by) values (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                .param(id).param(TenantContext.requireTenantId()).param(in.siteId()).param(in.templateId()).param(in.date()).param(in.headcount())
-                .param(in.comment() == null ? "" : in.comment()).param(offered).param(TenantContext.userId())
-                .update();
-        audit.record("urgent_request", id, "create", null, in);
-        return new UrgentResult(id, offered, 0, in.headcount());
+        var created = offers.create(in.templateId(), in.date(), in.headcount(), null, in.bonusPoints() == null ? 0 : in.bonusPoints(), null, in.comment());
+        return new UrgentResult(created.requestId(), created.offered(), 0, in.headcount());
     }
 
     /**
-     * Acceptances arrive from the worker app (later iteration). In the demo, one more person
-     * accepts every three seconds of wall-clock time so the progress screen can be shown.
+     * Acceptances arrive from the worker app. On the presentation stand (demo profile) one more
+     * person also accepts every three seconds of wall-clock time, so the progress screen moves
+     * without phones in the room.
      */
     @Transactional(readOnly = true)
     public UrgentResult urgentStatus(UUID id) {
@@ -150,7 +147,7 @@ public class OperationsService {
         record Row(UUID id, int offeredTo, int accepted, int headcount, long ageSeconds) {}
         Row r = jdbc.sql("select id, offered_to, accepted, headcount, extract(epoch from clock_timestamp() - created_at)::bigint as age_seconds from urgent_request where id = ?")
                 .param(id).query(Row.class).optional().orElseThrow(ApiException::notFound);
-        int accepted = simulateAcceptance ? (int) Math.min(Math.min(r.headcount(), r.offeredTo()), r.ageSeconds() / 3) : r.accepted();
+        int accepted = simulateAcceptance ? Math.max(r.accepted(), (int) Math.min(Math.min(r.headcount(), r.offeredTo()), r.ageSeconds() / 3)) : r.accepted();
         return new UrgentResult(r.id(), r.offeredTo(), accepted, r.headcount());
     }
 

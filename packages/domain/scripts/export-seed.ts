@@ -7,7 +7,7 @@
  * Readable keys ("s-strykow", "w-12") become name-based UUIDs v3 of "kadreo-demo:<key>", the
  * same function as DemoIds.fromKey on the Java side. Site-local times become UTC instants.
  */
-import { createHash } from "node:crypto";
+import { createHash, pbkdf2Sync } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,7 @@ import {
 } from "../src/demo/generate";
 import { alerts, notifications, staffRequests } from "../src/demo/ops";
 import { clientUsers } from "../src/demo/org";
+import { biometricConsent, demoCardUid, demoPin, kioskDevice, kioskWorkerIds, seedIssues, seedOutput, seedUrgent, siteOutput, workerUsers } from "../src/demo/mobileData";
 import { requestAssignments, requestCells } from "../src/demo/requests";
 import { buildTimesheet, evidenceFor } from "../src/demo/timesheets";
 
@@ -143,6 +144,9 @@ seed.site = sites.map((s) => ({
   clock_window_min: s.clockWindowMin,
   outside_geofence: s.outsideGeofence,
   team_leader_name: teamLeaders[s.id] ?? null,
+  output_norm: siteOutput[s.id]?.norm ?? null,
+  output_unit: siteOutput[s.id]?.unit ?? null,
+  output_source: siteOutput[s.id]?.source ?? null,
 }));
 seed.contract = contracts.map((k) => ({
   id: id(k.id),
@@ -373,6 +377,60 @@ seed.staff_request_cell = [...requestCells].flatMap(([requestId, cells]) =>
   cells.map((c) => ({ ...T, request_id: id(requestId), template_id: id(c.templateId), date: c.date, needed: c.needed })),
 );
 seed.staff_request_assignment = [...requestAssignments].flatMap(([requestId, ids]) => [...ids].map((a) => ({ ...T, request_id: id(requestId), assignment_id: id(a) })));
+
+/* ------------------------------------------------------- mobile app and kiosk (14) */
+
+const WARSAW = "Europe/Warsaw";
+/** PBKDF2-SHA256 hash in the format the backend verifies (Credentials.java). */
+function pinHash(pin: string, salt: string): string {
+  const s = createHash("sha256").update(`salt:${salt}`).digest().subarray(0, 16);
+  return `pbkdf2-sha256$10000$${s.toString("base64")}$${pbkdf2Sync(pin, s, 10000, 32, "sha256").toString("base64")}`;
+}
+seed["app_user#worker"] = workerUsers.map((u) => ({ id: id(u.id), ...T, email: u.email, full_name: u.fullName, locale: u.locale, worker_id: id(u.workerId) }));
+seed["user_role#worker"] = workerUsers.flatMap((u) => u.roles.map((r) => ({ ...T, user_id: id(u.id), role_code: r })));
+seed["user_scope#worker"] = workerUsers.filter((u) => u.leadsSiteId).map((u) => ({ ...T, user_id: id(u.id), kind: "site", value: id(u.leadsSiteId!) }));
+seed["app_user#kiosk"] = [{ id: id(kioskDevice.userId), ...T, email: kioskDevice.email, full_name: kioskDevice.code, locale: "ru" }];
+seed["user_role#kiosk"] = [{ ...T, user_id: id(kioskDevice.userId), role_code: "KIOSK" }];
+seed["user_scope#kiosk"] = [{ ...T, user_id: id(kioskDevice.userId), kind: "site", value: id(kioskDevice.siteId) }];
+seed.kiosk_device = [{ id: id(kioskDevice.id), ...T, user_id: id(kioskDevice.userId), site_id: id(kioskDevice.siteId), code: kioskDevice.code, entry: kioskDevice.entry, face_enabled: kioskDevice.faceEnabled }];
+seed.worker_credential = kioskWorkerIds.map((wid) => {
+  const w = workers.find((x) => x.id === wid)!;
+  return { ...T, worker_id: id(wid), pin_hash: pinHash(demoPin(w.number), wid), card_uid: demoCardUid(wid), biometric_consent_at: biometricConsent.has(wid) ? "2026-09-01T08:00:00Z" : null };
+});
+seed.clock_issue = seedIssues.map((x) => ({
+  id: id(x.id),
+  ...T,
+  worker_id: id(x.workerId),
+  assignment_id: id(x.assignmentId),
+  kind: x.kind,
+  type: x.type,
+  local_time: x.time,
+  comment: x.comment,
+  status: "open",
+  created_at: instant(DEMO_TODAY, x.createdAt, WARSAW),
+  created_by_name: (() => {
+    const w = workers.find((y) => y.id === x.workerId)!;
+    return `${w.firstName} ${w.lastName}`;
+  })(),
+}));
+seed.urgent_request = [
+  {
+    id: id(seedUrgent.requestId),
+    ...T,
+    site_id: id(seedUrgent.siteId),
+    template_id: id(seedUrgent.templateId),
+    date: seedUrgent.date,
+    headcount: seedUrgent.headcount,
+    comment: "",
+    offered_to: 1,
+    accepted: 0,
+    bonus_points: seedUrgent.bonusPoints,
+    created_at: instant(DEMO_TODAY, seedUrgent.createdAt, WARSAW),
+    created_by: id("u-marta"),
+  },
+];
+seed.urgent_offer = [{ id: id(seedUrgent.offerId), ...T, request_id: id(seedUrgent.requestId), worker_id: id(seedUrgent.workerId), status: "sent", sent_at: instant(DEMO_TODAY, seedUrgent.createdAt, WARSAW) }];
+seed.shift_output = [{ ...T, site_id: id(seedOutput.siteId), date: seedOutput.date, start_time: seedOutput.start, value: seedOutput.value, updated_at: instant(seedOutput.date, seedOutput.updatedAt, WARSAW) }];
 
 seed.notification = notifications.map((n) => ({ id: id(n.id), ...T, user_id: id("u-marta"), kind: n.kind, title: n.title, href: n.href ?? null, at: new Date(n.at).toISOString(), read: n.read }));
 
