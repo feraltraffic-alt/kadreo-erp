@@ -332,6 +332,8 @@ export interface Timesheet {
 
 export interface Reason {
   id: Id;
+  /** Stable code within the tenant ("ot-unapproved"), for logic that must not depend on ids. */
+  code: string;
   name: LocalizedText;
 }
 
@@ -380,6 +382,8 @@ export type SiteLiveStatus = "ok" | "deviation" | "critical";
 
 export interface SiteLive {
   siteId: Id;
+  /** Project of the site, for drill-down into its schedule. */
+  projectId: Id;
   siteName: string;
   clientName: string;
   shiftLabel: string;

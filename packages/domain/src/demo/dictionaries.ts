@@ -21,17 +21,17 @@ export const positions: Position[] = [
 
 /** Tenant dictionary of timesheet correction reasons (9.2-21). */
 export const correctionReasons: Reason[] = [
-  { id: "r-ot-unapproved", name: { pl: "Nadgodziny nieuzgodnione", uk: "Понаднормові не погоджені", ru: "Сверхурочные не согласованы", en: "Overtime not approved" } },
-  { id: "r-clock-error", name: { pl: "Błąd odbicia", uk: "Помилка відмітки", ru: "Ошибка отметки", en: "Clock-in error" } },
-  { id: "r-client-task", name: { pl: "Praca poza zmianą na zlecenie klienta", uk: "Робота поза зміною на завдання клієнта", ru: "Работа вне смены по заданию клиента", en: "Off-shift work requested by client" } },
-  { id: "r-forgot", name: { pl: "Pracownik zapomniał się odbić", uk: "Працівник забув відмітитися", ru: "Работник забыл отметиться", en: "Worker forgot to clock" } },
-  { id: "r-absence-excused", name: { pl: "Nieobecność usprawiedliwiona", uk: "Відсутність з поважної причини", ru: "Отсутствие по уважительной причине", en: "Excused absence" } },
+  { id: "r-ot-unapproved", code: "ot-unapproved", name: { pl: "Nadgodziny nieuzgodnione", uk: "Понаднормові не погоджені", ru: "Сверхурочные не согласованы", en: "Overtime not approved" } },
+  { id: "r-clock-error", code: "clock-error", name: { pl: "Błąd odbicia", uk: "Помилка відмітки", ru: "Ошибка отметки", en: "Clock-in error" } },
+  { id: "r-client-task", code: "client-task", name: { pl: "Praca poza zmianą na zlecenie klienta", uk: "Робота поза зміною на завдання клієнта", ru: "Работа вне смены по заданию клиента", en: "Off-shift work requested by client" } },
+  { id: "r-forgot", code: "forgot", name: { pl: "Pracownik zapomniał się odbić", uk: "Працівник забув відмітитися", ru: "Работник забыл отметиться", en: "Worker forgot to clock" } },
+  { id: "r-absence-excused", code: "absence-excused", name: { pl: "Nieobecność usprawiedliwiona", uk: "Відсутність з поважної причини", ru: "Отсутствие по уважительной причине", en: "Excused absence" } },
 ];
 
 /** Tenant dictionary of client dispute reasons (12.2-10). */
 export const disputeReasons: Reason[] = [
-  { id: "d-was-onsite", name: { pl: "Pracownik był na obiekcie", uk: "Працівник був на об'єкті", ru: "Работник был на объекте", en: "Worker was on site" } },
-  { id: "d-too-many", name: { pl: "Godzin więcej niż faktycznie", uk: "Годин більше, ніж фактично", ru: "Часов больше, чем фактически", en: "More hours than worked" } },
-  { id: "d-not-ours", name: { pl: "Pracownik spoza naszego zamówienia", uk: "Працівник не з нашої заявки", ru: "Работник не нашей заявки", en: "Worker not on our request" } },
-  { id: "d-other", name: { pl: "Inne", uk: "Інше", ru: "Другое", en: "Other" } },
+  { id: "d-was-onsite", code: "was-onsite", name: { pl: "Pracownik był na obiekcie", uk: "Працівник був на об'єкті", ru: "Работник был на объекте", en: "Worker was on site" } },
+  { id: "d-too-many", code: "too-many", name: { pl: "Godzin więcej niż faktycznie", uk: "Годин більше, ніж фактично", ru: "Часов больше, чем фактически", en: "More hours than worked" } },
+  { id: "d-not-ours", code: "not-ours", name: { pl: "Pracownik spoza naszego zamówienia", uk: "Працівник не з нашої заявки", ru: "Работник не нашей заявки", en: "Worker not on our request" } },
+  { id: "d-other", code: "other", name: { pl: "Inne", uk: "Інше", ru: "Другое", en: "Other" } },
 ];

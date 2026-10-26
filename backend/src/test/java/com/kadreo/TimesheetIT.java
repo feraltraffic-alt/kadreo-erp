@@ -23,6 +23,11 @@ class TimesheetIT extends IntegrationTest {
         return Api.signIn(http, DemoIds.DEMO_USER_EMAIL);
     }
 
+    static String viktor(Api api) {
+        List<Map> hits = (List<Map>) api.get("/api/v1/search?q=Hnatiuk", Map.class).getBody().get("workers");
+        return (String) hits.stream().filter(h -> "Viktor Hnatiuk".equals(h.get("label"))).findFirst().orElseThrow().get("id");
+    }
+
     @Test
     void listShowsTheReviewPeriodOfEveryProject() {
         List<Map> list = marta().get("/api/v1/timesheets", List.class).getBody();
@@ -45,7 +50,7 @@ class TimesheetIT extends IntegrationTest {
     @Test
     void dayDetailCarriesTheClockEvidence() {
         Api api = marta();
-        String viktor = (String) ((List<Map>) api.get("/api/v1/search?q=Hnatiuk", Map.class).getBody().get("workers")).get(0).get("id");
+        String viktor = viktor(api);
         Map ts = (Map) api.get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-strykow") + "&from=2026-10-19", Map.class).getBody().get("timesheet");
         Map day = api.get("/api/v1/timesheets/" + ts.get("id") + "/rows/" + viktor + "/days/2026-10-23", Map.class).getBody();
         List<Map> ev = (List<Map>) day.get("evidence");
@@ -58,7 +63,7 @@ class TimesheetIT extends IntegrationTest {
     @Test
     void correctionChangesHoursAndKeepsHistory() {
         Api api = marta();
-        String viktor = (String) ((List<Map>) api.get("/api/v1/search?q=Hnatiuk", Map.class).getBody().get("workers")).get(0).get("id");
+        String viktor = viktor(api);
         Map ts = (Map) api.get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-strykow") + "&from=2026-10-19", Map.class).getBody().get("timesheet");
         String path = "/api/v1/timesheets/" + ts.get("id");
         Map before = (Map) api.get(path + "/rows/" + viktor + "/days/2026-10-22", Map.class).getBody().get("day");
@@ -77,7 +82,11 @@ class TimesheetIT extends IntegrationTest {
     @Test
     void sendToClientStartsTheAutoAcceptClock() {
         Api api = marta();
-        Map ts = (Map) api.get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-poznan") + "&from=2026-10-19", Map.class).getBody().get("timesheet");
+        // Any review-period timesheet not sent yet, other than Stryków (other tests read its state).
+        Map ts = ((List<Map>) api.get("/api/v1/timesheets", List.class).getBody()).stream()
+                .filter(x -> "not_sent".equals(((Map) ((Map) x.get("timesheet")).get("clientStage")).get("kind")))
+                .filter(x -> !fromKey("pr-strykow").toString().equals(x.get("projectId")))
+                .findFirst().orElseThrow();
         var sent = api.post("/api/v1/timesheets/" + ts.get("id") + "/send-to-client", null, Map.class);
         assertThat(sent.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(sent.getBody()).containsEntry("managerConfirmed", true);

@@ -44,9 +44,10 @@ jobs:
       - name: Failed test summary
         if: failure()
         run: |
-          python3 - <<'PY'
+          python3 - <<'PY2'
           import glob, re, xml.etree.ElementTree as ET
           seen = set()
+          server = []
           for f in glob.glob("build/test-results/test/*.xml"):
               r = ET.parse(f).getroot()
               for tc in r.iter("testcase"):
@@ -62,7 +63,24 @@ jobs:
                           continue
                       seen.add(key)
                       print(f"::error title={tc.get('classname')}.{tc.get('name')}::" + msg[:3500].replace("\n", " ").replace("%", "%25"))
-          PY
+              # Server-side exceptions logged by the application during the tests.
+              for out in list(r.iter("system-out")) + list(r.iter("system-err")):
+                  lines = (out.text or "").splitlines()
+                  for i, l in enumerate(lines):
+                      if "Unhandled error" in l or (" ERROR " in l and "ApiExceptionHandler" not in l):
+                          block = [l.strip()[-300:]]
+                          for x in lines[i + 1:i + 40]:
+                              xs = x.strip()
+                              if xs.startswith("at ") and "com.kadreo" not in xs:
+                                  continue
+                              block.append(xs[:300])
+                          sig = " ".join(b for b in block if not b.startswith("at "))[:200]
+                          if sig not in seen:
+                              seen.add(sig)
+                              server.append(" | ".join(block[:14]))
+          if server:
+              print("::error title=Server-side exceptions::" + " || ".join(server)[:16000].replace("%", "%25"))
+          PY2
 
   frontend:
     name: Front end (typecheck, build)

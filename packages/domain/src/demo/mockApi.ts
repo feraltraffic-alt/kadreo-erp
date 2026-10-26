@@ -188,6 +188,13 @@ export function createMockApi(): Api {
       await wait(40, 90);
       return currentUser();
     },
+    async updateLocale(locale) {
+      await wait(40, 90);
+      setDemoLocale(locale);
+    },
+    setActiveRole(role) {
+      setDemoRole(role);
+    },
     async tenant() {
       await wait(30, 60);
       return clone(tenant);

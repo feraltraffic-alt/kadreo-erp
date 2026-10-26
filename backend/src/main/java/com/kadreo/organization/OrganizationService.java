@@ -205,8 +205,8 @@ public class OrganizationService {
     }
 
     public List<Reason> reasons(String kind) {
-        return jdbc.sql("select id, name::text as name from reason where kind = ? order by sort").param(kind)
-                .query((rs, i) -> new Reason(rs.getObject("id", UUID.class), Json.text(rs.getString("name"))))
+        return jdbc.sql("select id, code, name::text as name from reason where kind = ? order by sort").param(kind)
+                .query((rs, i) -> new Reason(rs.getObject("id", UUID.class), rs.getString("code"), Json.text(rs.getString("name"))))
                 .list();
     }
 

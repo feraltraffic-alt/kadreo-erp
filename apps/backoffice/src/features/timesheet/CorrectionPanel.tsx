@@ -36,7 +36,7 @@ export function CorrectionPanel({ target, locked, onClose, onDirtyChange }: { ta
     if (q.data) {
       setPayable(String(q.data.day.payableHours).replace(".", ","));
       setBillable(String(q.data.day.billableHours).replace(".", ","));
-      setReason(q.data.day.issue?.kind === "unapproved_overtime" ? "r-ot-unapproved" : "");
+      setReason(q.data.day.issue?.kind === "unapproved_overtime" ? (dict.correctionReasons.find((r) => r.code === "ot-unapproved")?.id ?? "") : "");
       setComment("");
       setTriedSave(false);
     }

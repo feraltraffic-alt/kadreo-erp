@@ -1,6 +1,8 @@
 import type { CandidateScore, ConstraintViolation } from "./scoring";
 import type {
   Alert,
+  Locale,
+  RoleCode,
   Assignment,
   ClockEvidence,
   Client,
@@ -179,6 +181,9 @@ export class ApiError extends Error {
 export interface Api {
   /* core */
   me(): Promise<CurrentUser>; // GET /api/v1/me
+  updateLocale(locale: Locale): Promise<void>; // PATCH /api/v1/me
+  /** Active role for the next requests (X-Active-Role header, "switch role" menu 8.4). */
+  setActiveRole(role: RoleCode): void;
   tenant(): Promise<Tenant>; // GET /api/v1/tenant
   dictionaries(): Promise<{ positions: Position[]; competences: Competence[]; correctionReasons: Reason[]; disputeReasons: Reason[] }>;
   search(q: string): Promise<SearchResults>; // GET /api/v1/search?q=

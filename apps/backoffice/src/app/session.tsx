@@ -1,4 +1,4 @@
-import { can as canPerm, createMockApi, setDemoLocale, setDemoRole, type Api, type CurrentUser, type Position, type Reason, type Competence, type RoleCode, type Tenant } from "@kadreo/domain";
+import { can as canPerm, createHttpApi, createMockApi, demoTokenProvider, type Api, type CurrentUser, type Position, type Reason, type Competence, type RoleCode, type Tenant } from "@kadreo/domain";
 import { I18nProvider, mergeCatalogs, type Locale } from "@kadreo/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
@@ -8,10 +8,15 @@ import { schedule } from "../i18n/schedule";
 import { timesheet } from "../i18n/timesheet";
 
 /**
- * Session: current user, tenant branding, dictionaries. In production `api` is the HTTP client
- * generated from OpenAPI with the same interface; here it is the in-memory demo implementation.
+ * Session: current user, tenant branding, dictionaries. With VITE_API_URL set the screens talk to
+ * the backend over HTTP; without it they use the in-memory demo with the same data and contract.
+ * The backend demo profile signs in through its dev-token endpoint as VITE_DEMO_EMAIL; production
+ * sign-in goes through Keycloak (later iteration).
  */
-export const api: Api = createMockApi();
+const apiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
+export const api: Api = apiUrl
+  ? createHttpApi({ baseUrl: apiUrl, token: demoTokenProvider(apiUrl, (import.meta.env.VITE_DEMO_EMAIL as string | undefined) ?? "marta.kowalska@demo-outsourcing.pl") })
+  : createMockApi();
 
 const catalogs = mergeCatalogs(common, dashboard, schedule, timesheet);
 
@@ -39,7 +44,7 @@ function storedLocale(): Locale | null {
 
 // Apply the stored language before the first request so the profile matches the UI.
 const initial = storedLocale();
-if (initial) setDemoLocale(initial);
+if (initial && !apiUrl) void api.updateLocale(initial);
 
 export function SessionProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const qc = useQueryClient();
@@ -49,19 +54,18 @@ export function SessionProvider({ children, fallback }: { children: ReactNode; f
 
   const setLocale = useCallback(
     (l: Locale) => {
-      setDemoLocale(l);
+      void api.updateLocale(l).then(() => qc.invalidateQueries({ queryKey: ["me"] }));
       try {
         localStorage.setItem(LOCALE_KEY, l);
       } catch {
         /* private mode: language still applies for this session */
       }
-      void qc.invalidateQueries({ queryKey: ["me"] });
     },
     [qc],
   );
   const setRole = useCallback(
     (r: RoleCode) => {
-      setDemoRole(r);
+      api.setActiveRole(r);
       void qc.invalidateQueries();
     },
     [qc],

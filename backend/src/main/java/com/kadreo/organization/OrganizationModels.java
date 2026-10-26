@@ -74,7 +74,7 @@ public final class OrganizationModels {
 
     public record Competence(UUID id, Map<String, String> name, boolean requiresDocument, String kind, String requiredDocumentType) {}
 
-    public record Reason(UUID id, Map<String, String> name) {}
+    public record Reason(UUID id, String code, Map<String, String> name) {}
 
     public record Dictionaries(List<Position> positions, List<Competence> competences, List<Reason> correctionReasons, List<Reason> disputeReasons) {}
 }

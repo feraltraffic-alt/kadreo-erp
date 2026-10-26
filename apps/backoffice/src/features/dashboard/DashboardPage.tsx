@@ -349,7 +349,7 @@ function DrillDialog({ kind, sites, onClose }: { kind: null | "onShift" | "late"
                     <td className="py-2.5 text-right">
                       {can("shift.schedule.edit") && r.noShows > r.noShowsReplaced && (
                         <Tooltip content={r.siteName}>
-                          <Button size="xs" variant="dark" onClick={() => navigate(`/workforce/projects/pr-${r.siteId.slice(2)}/schedule`)}>
+                          <Button size="xs" variant="dark" onClick={() => navigate(`/workforce/projects/${r.projectId}/schedule`)}>
                             {t("drill.noShows.replace")}
                           </Button>
                         </Tooltip>

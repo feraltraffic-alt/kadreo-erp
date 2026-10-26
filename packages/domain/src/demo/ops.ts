@@ -57,6 +57,7 @@ export function computeSiteLive(siteId: string, openAlerts: Alert[]): SiteLive {
   else if (shortage >= 1 || late > 5 || siteAlerts.some((a) => a.severity === "warning")) status = "deviation";
   return {
     siteId,
+    projectId: project.id,
     siteName: site.name,
     clientName: clients.find((c) => c.id === site.clientId)!.shortName,
     shiftLabel: labels.length > 1 ? `${labels[0]} +${labels.length - 1}` : labels[0] ?? "—",
