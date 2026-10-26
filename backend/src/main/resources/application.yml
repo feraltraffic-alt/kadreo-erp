@@ -47,5 +47,8 @@ springdoc:
     path: /swagger-ui.html
 
 kadreo:
+  timesheets:
+    # How often sent timesheets past the client's deadline are auto-accepted (9.2-08).
+    auto-accept-every: ${TIMESHEET_AUTO_ACCEPT_EVERY:PT1M}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:4173}
