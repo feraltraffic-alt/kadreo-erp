@@ -151,8 +151,10 @@ public class PortalService {
         Contract k = contractOf(s);
         Project p = org.projectOfSite(s.id());
         List<ShiftTemplate> tpls = org.templates(p.id());
+        // In the order of the site's shift lines, so the main position comes first.
         List<PositionOption> positions = k.rates().stream()
                 .filter(r -> tpls.stream().anyMatch(t -> t.positionId().equals(r.positionId())))
+                .sorted(Comparator.comparingInt((RateCard r) -> tpls.stream().filter(t -> t.positionId().equals(r.positionId())).mapToInt(ShiftTemplate::sortOrder).min().orElse(99)))
                 .map(r -> new PositionOption(r.positionId(), k.showRatesInPortal() ? money(r.current()) : null))
                 .toList();
         List<Contact> contacts = jdbc.sql("select id, full_name as name from app_user where client_id = ? and status = 'active' order by full_name")

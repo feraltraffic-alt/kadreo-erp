@@ -288,7 +288,10 @@ export function createPortalMockApi(): PortalApi {
       const tpls = templates.filter((t) => t.projectId === projectOf(siteId).id);
       return clone({
         site: portalSite(site),
-        positions: k.rates.filter((r) => tpls.some((t) => t.positionId === r.positionId)).map((r) => ({ id: r.positionId, rate: k.showRatesInPortal ? r.current : null })),
+        positions: k.rates
+          .filter((r) => tpls.some((t) => t.positionId === r.positionId))
+          .sort((a, b) => Math.min(...tpls.filter((t) => t.positionId === a.positionId).map((t) => t.sortOrder)) - Math.min(...tpls.filter((t) => t.positionId === b.positionId).map((t) => t.sortOrder)))
+          .map((r) => ({ id: r.positionId, rate: k.showRatesInPortal ? r.current : null })),
         templates: tpls.map((t) => ({ id: t.id, positionId: t.positionId, start: t.start, end: t.end, hours: shiftHours(t.start, t.end, t.unpaidBreakMin) })),
         competenceIds: competences.map((c) => c.id),
         contacts: clientUsers.filter((u) => u.clientId === site.clientId).map((u) => ({ id: u.id, name: u.fullName })),

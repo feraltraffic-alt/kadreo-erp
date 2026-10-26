@@ -46,6 +46,7 @@ async def main():
             # 2. New request as on the 12.1 mock-up: 8 pickers, 28–30.10, 06:00–14:00, WMS + experience.
             await client.goto(f"{PORTAL}/#/requests/new")
             await expect(client.get_by_text("Итог заявки")).to_be_visible(timeout=15000)
+            await client.select_option("#nr-position", label="Комплектовщик")
             await client.fill("#nr-headcount", "8")
             await client.fill("#nr-to", "2026-10-30")
             await client.get_by_role("button", name="Сканер WMS").click()
