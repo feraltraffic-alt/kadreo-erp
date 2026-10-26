@@ -87,7 +87,7 @@ class WorkerAppService {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, body);
     }
 
-    private LocalDate today() {
+    private LocalDate localToday() {
         return schedule.today();
     }
 
@@ -114,7 +114,7 @@ class WorkerAppService {
     }
 
     private List<MobileShift> upcoming(UUID workerId, Assignment current, Map<UUID, Position> positions) {
-        LocalDate from = today().plusDays(1);
+        LocalDate from = localToday().plusDays(1);
         List<MobileShift> list = new ArrayList<>();
         workforce.assignmentsOfWorker(workerId, from, from.plusDays(28)).stream().filter(Assignment::active).filter(x -> current == null || !x.id().equals(current.id()))
                 .forEach(x -> list.add(shifts.view(x, positions)));

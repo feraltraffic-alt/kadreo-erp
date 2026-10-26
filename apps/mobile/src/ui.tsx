@@ -242,15 +242,17 @@ export function Choice<T extends string>({ options, value, onChange, testID }: {
 export function Sheet({ open, onClose, title, children, label }: { open: boolean; onClose: () => void; title: string; children: ReactNode; label?: string }) {
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: "rgba(14,21,37,0.45)" }} onPress={onClose} accessibilityLabel={label ?? "close"} />
-      <View accessibilityRole={"dialog" as never} aria-label={title} style={{ backgroundColor: color.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, gap: 14, maxHeight: "88%" }}>
-        <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: color.border }} />
-        <Text w={800} size={19}>
-          {title}
-        </Text>
-        <ScrollView contentContainerStyle={{ gap: 14 }} keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        <Pressable style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(14,21,37,0.45)" }} onPress={onClose} accessibilityLabel={label ?? "close"} />
+        <View accessibilityRole={"dialog" as never} aria-label={title} style={{ backgroundColor: color.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, gap: 14, maxHeight: "88%", width: "100%", maxWidth: 400, alignSelf: "center" }}>
+          <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: color.border }} />
+          <Text w={800} size={19}>
+            {title}
+          </Text>
+          <ScrollView contentContainerStyle={{ gap: 14 }} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );

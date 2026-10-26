@@ -2,7 +2,7 @@ import { MOBILE_DEMO_USERS, type MobileDemoUserKey } from "@kadreo/domain";
 import { useI18n } from "@kadreo/i18n";
 import { BarChart3, CalendarDays, CheckSquare, Clock3, FileText, Gift, LayoutGrid, MapPin, MessageSquare, UserRound, Users } from "lucide-react-native";
 import { useState, type ComponentType } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrigadeScreen, OutputHistoryScreen } from "./screens/leader/BrigadeScreen";
 import { DecisionsScreen, SitesScreen, SummaryScreen, useDecisionsCount } from "./screens/manager/ManagerScreens";
@@ -24,12 +24,19 @@ interface Tab {
 /** The app's tabs depend on the role (14.1-15, 14.2-12, 14.3-10); the kiosk has no tabs. */
 export function Shell() {
   const { user, me } = useSession();
-  if (!user) return <SignIn />;
-  if (!me) return <Loading />;
-  if (user === "kiosk") return <KioskScreen />;
-  if (user === "manager") return <ManagerShell />;
-  if (user === "leader") return <LeaderShell />;
-  return <WorkerShell />;
+  if (user === "kiosk") return me ? <KioskScreen /> : <Loading />;
+  return <PhoneFrame>{!user ? <SignIn /> : !me ? <Loading /> : user === "manager" ? <ManagerShell /> : user === "leader" ? <LeaderShell /> : <WorkerShell />}</PhoneFrame>;
+}
+
+/** On a wide browser window (the web demo) the phone app is shown at phone size. */
+function PhoneFrame({ children }: { children: React.ReactNode }) {
+  const { width, height } = useWindowDimensions();
+  if (Platform.OS !== "web" || width < 640) return <>{children}</>;
+  return (
+    <View style={{ flex: 1, backgroundColor: "#dfe3ea", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <View style={{ width: 400, height: Math.min(860, height - 32), borderRadius: 36, overflow: "hidden", borderWidth: 8, borderColor: color.dark, backgroundColor: color.bg }}>{children}</View>
+    </View>
+  );
 }
 
 function TabBar({ tabs, active, onChange }: { tabs: Tab[]; active: string; onChange: (k: string) => void }) {
