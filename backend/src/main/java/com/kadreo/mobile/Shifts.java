@@ -72,7 +72,7 @@ class Shifts {
     record SiteExtra(int noShowAfterMin, int radiusM, int requiredAccuracyM, Integer outputNorm, String outputUnit, String outputSource) {}
 
     SiteExtra extra(UUID siteId) {
-        return jdbc.sql("select no_show_after_min, geofence_radius_m, required_accuracy_m, output_norm, output_unit, output_source from site where id = ?")
+        return jdbc.sql("select no_show_after_min, geofence_radius_m as radius_m, required_accuracy_m, output_norm, output_unit, output_source from site where id = ?")
                 .param(siteId).query(SiteExtra.class).single();
     }
 
