@@ -8,7 +8,9 @@ import java.util.Map;
 /** jsonb helpers: LocalizedText is stored as {"pl": …, "uk": …, "ru": …, "en": …}. */
 public final class Json {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
+    private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules()
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .disable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     private static final TypeReference<Map<String, String>> TEXT = new TypeReference<>() {};
 
     private Json() {}
@@ -28,6 +30,14 @@ public final class Json {
             return MAPPER.readTree(jsonb);
         } catch (Exception e) {
             throw new IllegalStateException("Bad json: " + jsonb, e);
+        }
+    }
+
+    public static <T> T read(String json, Class<T> type) {
+        try {
+            return MAPPER.readValue(json, type);
+        } catch (Exception e) {
+            throw new IllegalStateException("Bad json for " + type.getSimpleName(), e);
         }
     }
 

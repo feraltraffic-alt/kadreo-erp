@@ -36,6 +36,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("code", "conflict", "byName", "", "at", ""));
     }
 
+    /** A unique key hit by a concurrent or repeated write (e.g. the same worker twice in one cell). */
+    @ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
+    ResponseEntity<Map<String, Object>> duplicate(Exception e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("code", "conflict", "byName", "", "at", ""));
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> unexpected(Exception e) {
         log.error("Unhandled error", e);

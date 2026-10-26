@@ -195,6 +195,18 @@ public class ScheduleService {
         return out.size() > 20 ? out.subList(0, 20) : out;
     }
 
+    /** Workers who could take the shift right now (urgent replacement offers, 11.1-06). */
+    @Transactional(readOnly = true)
+    public int eligibleCount(UUID templateId, LocalDate date) {
+        ShiftTemplate t = org.template(templateId);
+        Site site = org.site(org.project(t.projectId()).siteId());
+        Context ctx = context(date, date);
+        return (int) workforce.workers().stream()
+                .filter(w -> w.positionIds().contains(t.positionId()))
+                .filter(w -> AssignmentRules.check(ctx, w, site, t, date).isEmpty())
+                .count();
+    }
+
     /* -------------------------------------------------------------------- writes */
 
     @Transactional
@@ -360,10 +372,6 @@ public class ScheduleService {
     public AutoAssignJob job(UUID jobId) {
         users.require("shift.autoassign.run");
         String result = jdbc.sql("select result::text from auto_assign_job where id = ?").param(jobId).query(String.class).optional().orElseThrow(ApiException::notFound);
-        try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().readValue(result, AutoAssignJob.class);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        return Json.read(result, AutoAssignJob.class);
     }
 }
