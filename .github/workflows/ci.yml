@@ -124,9 +124,12 @@ jobs:
           echo "stack OK"
       - name: Browser flow against the stack
         run: |
-          pip install --quiet playwright==1.58.0
-          python -m playwright install --with-deps chromium > /dev/null
-          python e2e/stack_flow.py http://localhost:8081
+          set -o pipefail
+          report() { echo "::error title=$1::$(tail -c 6000 "$2" | tr '\n' ' ' | sed 's/%/%25/g')"; exit 1; }
+          pip install --quiet playwright==1.58.0 > /tmp/pw.log 2>&1 || report "pip install" /tmp/pw.log
+          python -m playwright install --with-deps chromium > /tmp/pw.log 2>&1 || report "playwright install" /tmp/pw.log
+          python e2e/stack_flow.py http://localhost:8081 > /tmp/e2e.log 2>&1 || report "browser flow" /tmp/e2e.log
+          cat /tmp/e2e.log
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4

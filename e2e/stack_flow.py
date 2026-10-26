@@ -27,49 +27,58 @@ async def main():
         async def shot(name):
             await page.screenshot(path=os.path.join(OUT, f"{name}.png"))
 
-        # 1. Dashboard: live numbers from the backend.
-        await page.goto(f"{BASE}/#/dashboard")
-        await expect(page.get_by_text("464", exact=True).first).to_be_visible(timeout=30000)
-        await expect(page.get_by_text("Stryków · Magazyn B").first).to_be_visible()
-        await page.wait_for_timeout(1500)
-        await shot("1_dashboard")
-
-        # 2. Projects → Stryków schedule, then auto-assign preview.
-        await page.goto(f"{BASE}/#/workforce/projects")
-        await page.get_by_text("Stryków · Magazyn B").first.click()
-        await expect(page.get_by_text("229").first).to_be_visible(timeout=20000)
-        await shot("2_schedule")
-        await page.get_by_role("button", name="Автораспределение AI").click()
-        await page.get_by_role("button", name="Рассчитать").click()
-        await page.wait_for_timeout(4000)
-        await shot("3_autoassign")
-        await page.keyboard.press("Escape")
-
-        # 3. Timesheets → Stryków → correct Viktor's 23.10 → send to client.
-        await page.goto(f"{BASE}/#/timesheets")
-        await page.get_by_text("Stryków · Magazyn B").first.click()
-        cell = page.get_by_role("button", name="Viktor Hnatiuk, 23.10").first
-        await expect(cell).to_be_visible(timeout=20000)
-        await cell.click()
-        await expect(page.get_by_text("05:56").first).to_be_visible(timeout=10000)
-        await shot("4_correction_panel")
-        await page.fill("#ts-pay", "8")
-        await page.fill("#ts-bill", "8")
-        await page.get_by_role("button", name="Сохранить").click()
-        await page.wait_for_timeout(2000)
-        await shot("5_corrected")
-
-        # 4. Global search.
-        await page.keyboard.press("Control+k")
-        await page.keyboard.type("Rudenko")
-        await expect(page.get_by_text("Dmytro Rudenko").first).to_be_visible(timeout=10000)
-        await shot("6_search")
+        try:
+            await flow(page, shot)
+        except Exception:
+            await shot("failure")
+            print("\n".join(problems))
+            raise
         await browser.close()
 
     if problems:
         print("\n".join(problems))
         sys.exit(1)
     print("e2e OK")
+
+
+async def flow(page, shot):
+    # 1. Dashboard: live numbers from the backend.
+    await page.goto(f"{BASE}/#/dashboard")
+    await expect(page.get_by_text("464", exact=True).first).to_be_visible(timeout=30000)
+    await expect(page.get_by_text("Stryków · Magazyn B").first).to_be_visible()
+    await page.wait_for_timeout(1500)
+    await shot("1_dashboard")
+
+    # 2. Projects → Stryków schedule, then auto-assign preview.
+    await page.goto(f"{BASE}/#/workforce/projects")
+    await page.get_by_text("Stryków · Magazyn B").first.click()
+    await expect(page.get_by_text("229").first).to_be_visible(timeout=20000)
+    await shot("2_schedule")
+    await page.get_by_role("button", name="Автораспределение AI").click()
+    await page.get_by_role("button", name="Рассчитать").click()
+    await page.wait_for_timeout(4000)
+    await shot("3_autoassign")
+    await page.keyboard.press("Escape")
+
+    # 3. Timesheets → Stryków → correct Viktor's 23.10 → send to client.
+    await page.goto(f"{BASE}/#/timesheets")
+    await page.get_by_text("Stryków · Magazyn B").first.click()
+    cell = page.get_by_role("button", name="Viktor Hnatiuk, 23.10").first
+    await expect(cell).to_be_visible(timeout=20000)
+    await cell.click()
+    await expect(page.get_by_text("05:56").first).to_be_visible(timeout=10000)
+    await shot("4_correction_panel")
+    await page.fill("#ts-pay", "8")
+    await page.fill("#ts-bill", "8")
+    await page.get_by_role("button", name="Сохранить").click()
+    await page.wait_for_timeout(2000)
+    await shot("5_corrected")
+
+    # 4. Global search.
+    await page.keyboard.press("Control+k")
+    await page.keyboard.type("Rudenko")
+    await expect(page.get_by_text("Dmytro Rudenko").first).to_be_visible(timeout=10000)
+    await shot("6_search")
 
 
 asyncio.run(main())
