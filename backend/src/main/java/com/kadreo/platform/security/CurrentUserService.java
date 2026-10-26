@@ -24,7 +24,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class CurrentUserService {
 
     /** Order in which a default active role is chosen. */
-    private static final List<String> ROLE_ORDER = List.of("OPS_MANAGER", "SITE_MANAGER", "EXECUTIVE", "HR", "PAYROLL", "FINANCE", "ANALYST", "TENANT_ADMIN", "AUDITOR", "TEAM_LEADER", "WORKER");
+    private static final List<String> ROLE_ORDER = List.of("OPS_MANAGER", "SITE_MANAGER", "EXECUTIVE", "HR", "PAYROLL", "FINANCE", "ANALYST", "TENANT_ADMIN", "AUDITOR", "TEAM_LEADER", "WORKER",
+            "CLIENT_ADMIN", "CLIENT_MANAGER", "CLIENT_VIEWER");
     private static final String ATTR = CurrentUserService.class.getName();
 
     private final JdbcClient jdbc;
@@ -50,8 +51,8 @@ public class CurrentUserService {
 
     public CurrentUser load(UUID userId, String requestedRole) {
         if (userId == null) throw new ApiException(HttpStatus.UNAUTHORIZED, Map.of("code", "unauthorized"));
-        record Row(UUID id, UUID tenantId, String fullName, String email, String locale, String status) {}
-        Row u = jdbc.sql("select id, tenant_id, full_name, email, locale, status from app_user where id = ?")
+        record Row(UUID id, UUID tenantId, String fullName, String email, String locale, String status, UUID clientId) {}
+        Row u = jdbc.sql("select id, tenant_id, full_name, email, locale, status, client_id from app_user where id = ?")
                 .param(userId)
                 .query(Row.class)
                 .optional()
@@ -76,7 +77,7 @@ public class CurrentUserService {
         List<UUID> sites = jdbc.sql("select value::uuid from user_scope where user_id = ? and kind = 'site'").param(userId).query(UUID.class).list();
         String[] parts = u.fullName().trim().split("\\s+");
         String initials = (parts[0].substring(0, 1) + (parts.length > 1 ? parts[parts.length - 1].substring(0, 1) : "")).toUpperCase();
-        return new CurrentUser(u.id(), u.tenantId(), u.fullName(), initials, u.email(), u.locale(), roles, active, permissions, new CurrentUser.Scope(regions, sites));
+        return new CurrentUser(u.id(), u.tenantId(), u.fullName(), initials, u.email(), u.locale(), roles, active, permissions, new CurrentUser.Scope(regions, sites), u.clientId());
     }
 
     private static String activeRoleHeader(RequestAttributes attrs) {

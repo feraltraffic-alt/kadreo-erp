@@ -1,8 +1,10 @@
 export * from "./types";
 export * from "./dates";
 export * from "./api";
+export * from "./portal";
 export * from "./scoring";
 export * from "./permissions";
 export { createMockApi, setDemoLocale, setDemoRole } from "./demo/mockApi";
+export { createPortalMockApi } from "./demo/portalMock";
 export { DEMO_NOW_ISO, DEMO_TODAY, DEMO_NOW_TIME } from "./demo/generate";
 export { createHttpApi, demoTokenProvider, type HttpApiOptions } from "./http";

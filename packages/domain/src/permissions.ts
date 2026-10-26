@@ -47,9 +47,10 @@ export const rolePermissions: Record<RoleCode, Permission[]> = {
   FINANCE: ["invoice.read", "invoice.generate", "invoice.issue", "bank.statement.import", "bank.connection.manage", "payment.batch.prepare", "contract.read", "contract.rates.read", "contract.manage", "timesheet.read", "analytics.read"],
   ANALYST: ["analytics.read"],
   AUDITOR: ["audit.read", "report.compliance"],
-  CLIENT_ADMIN: [],
-  CLIENT_MANAGER: [],
-  CLIENT_VIEWER: [],
+  // Client portal roles (12): their data is limited to their own client by the server.
+  CLIENT_ADMIN: ["portal.read", "staffrequest.create", "timesheet.client.confirm", "client.users.manage"],
+  CLIENT_MANAGER: ["portal.read", "staffrequest.create", "timesheet.client.confirm"],
+  CLIENT_VIEWER: ["portal.read"],
   KIOSK: [],
 };
 

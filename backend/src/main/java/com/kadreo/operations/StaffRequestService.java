@@ -193,14 +193,15 @@ public class StaffRequestService {
     /** Same as {@link #list()} without the permission check, for the dashboard summary. */
     List<StaffRequest> views() {
         Set<UUID> visible = dashboard.visibleSites(new DashboardService.Filter(null, null)).stream().map(Site::id).collect(Collectors.toSet());
-        List<StaffRequest> rows = jdbc.sql(SQL + " order by number desc").query(StaffRequestService::row).list().stream()
+        // A client's draft is not a request yet: the back office does not see it.
+        List<StaffRequest> rows = jdbc.sql(SQL + " where status <> 'draft' order by number desc").query(StaffRequestService::row).list().stream()
                 .filter(r -> visible.contains(r.siteId())).toList();
         Map<UUID, List<Cell>> progress = progress(rows);
         return rows.stream().map(r -> view(r, progress.getOrDefault(r.id(), List.of()))).toList();
     }
 
     private StaffRequest load(UUID id, boolean lock) {
-        StaffRequest r = jdbc.sql(SQL + " where id = ?" + (lock ? " for update" : "")).param(id).query(StaffRequestService::row).optional().orElseThrow(ApiException::notFound);
+        StaffRequest r = jdbc.sql(SQL + " where id = ? and status <> 'draft'" + (lock ? " for update" : "")).param(id).query(StaffRequestService::row).optional().orElseThrow(ApiException::notFound);
         Site site = org.site(r.siteId());
         CurrentUser u = users.current();
         if (!u.scope().wholeTenant() && !u.scope().siteIds().contains(site.id()) && !u.scope().regions().contains(site.region())) throw ApiException.notFound();
@@ -222,6 +223,107 @@ public class StaffRequestService {
                 .map((ShiftTemplate t) -> new TemplateBrief(t.id(), t.positionId(), t.start().toString(), t.end().toString())).toList();
         int responseHours = contract.sla() != null && contract.sla().has("responseHours") ? contract.sla().get("responseHours").asInt() : 0;
         return new Detail(view(r, cells), site, org.client(site.clientId()), project.id(), templates, cells, responseHours);
+    }
+
+    /* ----------------------------------------------------- public API for the portal */
+
+    /** Requests on these sites with derived progress; the caller checks who may see them. */
+    @Transactional(readOnly = true)
+    public List<StaffRequest> viewsOf(Collection<UUID> siteIds) {
+        if (siteIds.isEmpty()) return List.of();
+        List<StaffRequest> rows = jdbc.sql(SQL + " where site_id = any(?) order by number desc").param(siteIds.toArray(UUID[]::new)).query(StaffRequestService::row).list();
+        Map<UUID, List<Cell>> progress = progress(rows);
+        return rows.stream().map(r -> view(r, progress.getOrDefault(r.id(), List.of()))).toList();
+    }
+
+    public record RequestWithCells(StaffRequest request, List<Cell> cells) {}
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<RequestWithCells> find(UUID id) {
+        return jdbc.sql(SQL + " where id = ?").param(id).query(StaffRequestService::row).optional().map(r -> {
+            List<Cell> cells = progress(List.of(r)).getOrDefault(r.id(), List.of());
+            return new RequestWithCells(view(r, cells), cells);
+        });
+    }
+
+    /** A request as the client filled it in (12.1); the portal validates it before calling. */
+    public record NewRequest(UUID siteId, UUID positionId, int headcount, LocalDate from, LocalDate to, List<UUID> templateIds, List<UUID> competenceIds,
+            boolean experiencedOnly, String contactName, String clientRef, String comment, boolean draft) {}
+
+    /**
+     * «Отправить заявку» or «Сохранить черновик» (12.1-16, 17). A sent request starts the SLA timer
+     * and notifies the managers responsible for the site.
+     */
+    @Transactional
+    public StaffRequest create(NewRequest in, OffsetDateTime slaDueAt, CurrentUser client) {
+        UUID tenant = TenantContext.requireTenantId();
+        // Request numbers are per tenant and consecutive; the lock keeps two clients from taking the same one.
+        jdbc.sql("select pg_advisory_xact_lock(hashtext(?))").param("staff_request_number:" + tenant).query(Object.class).list();
+        int number = jdbc.sql("select coalesce(max(number), 0) + 1 from staff_request").query(Integer.class).single();
+        UUID id = com.kadreo.platform.util.Ids.newId();
+        jdbc.sql("""
+                insert into staff_request (id, tenant_id, number, site_id, position_id, headcount, date_from, date_to, status, sla_due_at, template_ids, competence_ids,
+                    experienced_only, client_ref, comment, contact_name, created_at, created_by, created_by_name)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+                .param(id).param(tenant).param(number).param(in.siteId()).param(in.positionId()).param(in.headcount()).param(in.from()).param(in.to())
+                .param(in.draft() ? "draft" : "new").param(slaDueAt).param(in.templateIds().toArray(UUID[]::new)).param(in.competenceIds().toArray(UUID[]::new))
+                .param(in.experiencedOnly()).param(blankToNull(in.clientRef())).param(blankToNull(in.comment())).param(in.contactName() == null ? "" : in.contactName())
+                .param(OffsetDateTime.now(clock)).param(client.id()).param(client.fullName())
+                .update();
+        audit.record("staff_request", id, in.draft() ? "draft" : "create", null, in);
+        StaffRequest r = find(id).orElseThrow().request();
+        if (!in.draft()) notifyManagers(r);
+        return r;
+    }
+
+    /** A draft can be edited and finally sent; anything else is no longer the client's to change. */
+    @Transactional
+    public StaffRequest updateDraft(UUID id, NewRequest in, OffsetDateTime slaDueAt, CurrentUser client) {
+        StaffRequest old = jdbc.sql(SQL + " where id = ? for update").param(id).query(StaffRequestService::row).optional().orElseThrow(ApiException::notFound);
+        if (!"draft".equals(old.status())) throw ApiException.conflict("", String.valueOf(old.status()));
+        jdbc.sql("""
+                update staff_request set site_id = ?, position_id = ?, headcount = ?, date_from = ?, date_to = ?, status = ?, sla_due_at = ?, template_ids = ?, competence_ids = ?,
+                    experienced_only = ?, client_ref = ?, comment = ?, contact_name = ?, created_at = ?, version = version + 1
+                where id = ?""")
+                .param(in.siteId()).param(in.positionId()).param(in.headcount()).param(in.from()).param(in.to()).param(in.draft() ? "draft" : "new").param(slaDueAt)
+                .param(in.templateIds().toArray(UUID[]::new)).param(in.competenceIds().toArray(UUID[]::new)).param(in.experiencedOnly())
+                .param(blankToNull(in.clientRef())).param(blankToNull(in.comment())).param(in.contactName() == null ? "" : in.contactName())
+                .param(OffsetDateTime.now(clock)).param(id)
+                .update();
+        audit.record("staff_request", id, in.draft() ? "draft" : "create", Map.of("status", "draft"), in);
+        StaffRequest r = find(id).orElseThrow().request();
+        if (!in.draft()) notifyManagers(r);
+        return r;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /** New request: a notification to every back-office user who can accept it for this site (12.1-16). */
+    private void notifyManagers(StaffRequest r) {
+        Site site = org.site(r.siteId());
+        List<UUID> recipients = jdbc.sql("""
+                select distinct u.id from app_user u
+                join user_role ur on ur.user_id = u.id
+                join role_permission rp on rp.role_id = ur.role_id
+                where u.client_id is null and u.status = 'active' and rp.permission in ('staffrequest.manage', '*')
+                  and (not exists (select 1 from user_scope s where s.user_id = u.id)
+                       or exists (select 1 from user_scope s where s.user_id = u.id and ((s.kind = 'site' and s.value = ?) or (s.kind = 'region' and s.value = ?))))""")
+                .param(site.id().toString()).param(site.region())
+                .query(UUID.class).list();
+        String client = org.client(site.clientId()).shortName();
+        Map<String, String> title = Map.of(
+                "pl", "Nowe zamówienie klienta nr " + r.number() + " · " + client,
+                "uk", "Нова заявка клієнта № " + r.number() + " · " + client,
+                "ru", "Новая заявка клиента № " + r.number() + " · " + client,
+                "en", "New client request No. " + r.number() + " · " + client);
+        for (UUID user : recipients) {
+            jdbc.sql("insert into notification (id, tenant_id, user_id, kind, title, href, at, read) values (?, ?, ?, 'alert', ?::jsonb, ?, ?, false)")
+                    .param(com.kadreo.platform.util.Ids.newId()).param(TenantContext.requireTenantId()).param(user).param(com.kadreo.platform.util.Json.write(title))
+                    .param("/requests/" + r.id()).param(OffsetDateTime.now(clock))
+                    .update();
+        }
     }
 
     /* ------------------------------------------------------------------------ writes */

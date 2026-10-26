@@ -15,12 +15,18 @@ public record CurrentUser(
         List<String> roles,
         String activeRole,
         Set<String> permissions,
-        Scope scope) {
+        Scope scope,
+        /** Set for client users (portal only, spec 12); null for the contractor's staff. */
+        UUID clientId) {
 
     public record Scope(List<String> regions, List<UUID> siteIds) {
         public boolean wholeTenant() {
             return regions.isEmpty() && siteIds.isEmpty();
         }
+    }
+
+    public boolean isClientUser() {
+        return clientId != null;
     }
 
     public boolean can(String permission) {

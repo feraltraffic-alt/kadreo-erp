@@ -48,6 +48,10 @@ public final class Api {
         return http.exchange(path, HttpMethod.POST, new HttpEntity<>(body, headers()), type);
     }
 
+    public <T> ResponseEntity<T> put(String path, Object body, Class<T> type) {
+        return http.exchange(path, HttpMethod.PUT, new HttpEntity<>(body, headers()), type);
+    }
+
     public <T> ResponseEntity<T> patch(String path, Object body, Class<T> type) {
         return http.exchange(path, HttpMethod.PATCH, new HttpEntity<>(body, headers()), type);
     }

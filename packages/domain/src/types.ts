@@ -304,6 +304,8 @@ export interface TimesheetDay {
   disputed?: boolean;
   /** Disputes on this day, oldest first; at most one is open. */
   disputes?: TimesheetDispute[];
+  /** The client confirmed this day (12.2-15); confirmed days do not change any more. */
+  clientConfirmed?: boolean;
 }
 
 export type TimesheetRowStatus = "ready" | "issues" | "disputed" | "confirmed";
@@ -330,6 +332,9 @@ export interface Timesheet {
   teamLeaderDaysConfirmed: number;
   managerConfirmed: boolean;
   clientStage: TimesheetClientStage;
+  /** When and by whom the timesheet was sent to the client (12.2-02). */
+  sentAt?: IsoDateTime;
+  sentByName?: string;
   rows: TimesheetRow[];
 }
 

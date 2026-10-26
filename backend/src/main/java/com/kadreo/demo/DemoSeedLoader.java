@@ -78,7 +78,8 @@ class DemoSeedLoader implements ApplicationRunner {
             int total = 0;
             for (Iterator<Map.Entry<String, JsonNode>> it = root.fields(); it.hasNext(); ) {
                 var table = it.next();
-                total += insert(c, table.getKey(), table.getValue());
+                // "table#part" loads into "table": lets the export order rows across foreign keys.
+                total += insert(c, table.getKey().split("#")[0], table.getValue());
             }
             c.commit();
             log.info("Demo seed loaded: {} rows in {} ms", total, System.currentTimeMillis() - started);

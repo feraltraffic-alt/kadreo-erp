@@ -1,4 +1,5 @@
-import type { Client, Contract, LegalEntity, Site, Tenant } from "../types";
+import type { ClientRole } from "../portal";
+import type { Client, Contract, LegalEntity, Locale, Site, Tenant } from "../types";
 
 /**
  * Demo tenant. Company, client and person names are invented; addresses are city-level only.
@@ -219,3 +220,19 @@ export const teamLeaders: Record<string, string> = {
   "s-grodzisk": "Ewa Dąbrowska", "s-dresden": "Mykola Shevchuk", "s-halle": "Yulia Polishchuk", "s-erfurt": "Roman Hrytsenko",
   "s-berlin": "Taras Lytvyn", "s-rawa": "Joanna Kamińska", "s-torun": "Oksana Rudenko",
 };
+
+/** Client users of the portal (spec 12). Jan Nowak is «Клиент А · менеджер» on the mock-ups. */
+export interface DemoClientUser {
+  id: string;
+  fullName: string;
+  email: string;
+  clientId: string;
+  role: ClientRole;
+  locale: Locale;
+}
+
+export const clientUsers: DemoClientUser[] = [
+  { id: "u-jan", fullName: "Jan Nowak", email: "jan.nowak@nordlog.pl", clientId: "cl-a", role: "CLIENT_MANAGER", locale: "ru" },
+  { id: "u-tomasz-l", fullName: "Tomasz Lewandowski", email: "tomasz.lewandowski@nordlog.pl", clientId: "cl-a", role: "CLIENT_ADMIN", locale: "pl" },
+  { id: "u-katarzyna", fullName: "Katarzyna Wójcik", email: "katarzyna.wojcik@polmarket.pl", clientId: "cl-c", role: "CLIENT_ADMIN", locale: "pl" },
+];

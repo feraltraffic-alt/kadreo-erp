@@ -25,7 +25,12 @@ public class AuditLog {
     }
 
     public void record(String entity, Object entityId, String action, Object before, Object after) {
-        jdbc.sql("insert into audit_log (id, tenant_id, at, actor_id, entity, entity_id, action, before, after) values (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)")
+        record(entity, entityId, action, before, after, null);
+    }
+
+    /** With the client's IP address, where the spec asks for it (12.2-15 confirmation). */
+    public void record(String entity, Object entityId, String action, Object before, Object after, String ip) {
+        jdbc.sql("insert into audit_log (id, tenant_id, at, actor_id, entity, entity_id, action, before, after, ip) values (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?)")
                 .param(Ids.newId())
                 .param(TenantContext.requireTenantId())
                 .param(OffsetDateTime.now(clock))
@@ -35,6 +40,7 @@ public class AuditLog {
                 .param(action)
                 .param(before == null ? null : Json.write(before))
                 .param(after == null ? null : Json.write(after))
+                .param(ip)
                 .update();
     }
 }

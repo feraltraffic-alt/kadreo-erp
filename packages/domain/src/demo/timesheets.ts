@@ -1,6 +1,7 @@
-import { addDays, daysBetween, fromMinutes, shiftHours, toMinutes } from "../dates";
+import { ApiError } from "../api";
+import { addDays, daysBetween, fromMinutes, mondayOf, shiftHours, toMinutes } from "../dates";
 import type { ClockEvidence, Timesheet, TimesheetClientStage, TimesheetDay, TimesheetRow } from "../types";
-import { DEMO_TODAY, assignments, namedWorkerIds, projects, sites, templates } from "./generate";
+import { DEMO_TODAY, assignments, contracts, namedWorkerIds, projects, sites, templates } from "./generate";
 import { createRng, hashString } from "./rng";
 
 /**
@@ -15,6 +16,8 @@ const POZNAN_DISPUTED = "pr-poznan";
 function clientStageFor(projectId: string, from: string, to: string): TimesheetClientStage {
   if (daysBetween(to, DEMO_TODAY) > 7) return { kind: "confirmed" };
   if (projectId === POZNAN_DISPUTED) return { kind: "disputed", rows: 2 };
+  // Nordlog's Piotrków week waits for the client, as on the «Часы на подтверждение» mock-up.
+  if (projectId === "pr-piotrkow") return { kind: "waiting", until: "2026-10-29T23:59:00+01:00" };
   if (projectId === STRYKOW_REVIEW.projectId && from === STRYKOW_REVIEW.from) return { kind: "not_sent" };
   const h = hashString(projectId) % 4;
   if (h === 0) return { kind: "waiting", until: "2026-10-29T23:59:00+01:00" };
@@ -96,6 +99,7 @@ export function buildTimesheet(projectId: string, from: string, to: string): Tim
     teamLeaderDaysConfirmed: isPast ? dates.length : Math.max(0, daysBetween(from, DEMO_TODAY)),
     managerConfirmed: stage.kind !== "not_sent",
     clientStage: stage,
+    ...(stage.kind !== "not_sent" ? { sentAt: `${addDays(to, 1)}T07:12:00+01:00`, sentByName: project.managerName } : {}),
     rows,
   };
 }
@@ -180,3 +184,41 @@ export function evidenceFor(projectId: string, workerId: string, day: TimesheetD
   if (day.issue?.kind !== "missing_clock") list.push(ev("out", fromMinutes(outMin), method(2)));
   return list;
 }
+
+/* ------------------------------------------------------------------ shared state */
+
+/** Timesheets built so far; the back office and the portal demo share these objects. */
+const timesheetCache = new Map<string, Timesheet>();
+
+function timesheetKey(projectId: string, from: string) {
+  return `${projectId}|${from}`;
+}
+
+export function getTimesheet(projectId: string, from: string, to: string): Timesheet {
+  const key = timesheetKey(projectId, from);
+  if (!timesheetCache.has(key)) timesheetCache.set(key, buildTimesheet(projectId, from, to));
+  return timesheetCache.get(key)!;
+}
+
+export function timesheetById(id: string): Timesheet {
+  for (const t of timesheetCache.values()) if (t.id === id) return t;
+  throw new ApiError(404, { code: "not_found" });
+}
+
+export function periodFor(projectId: string, anyDate: string): { from: string; to: string } {
+  const contract = contracts.find((c) => c.id === projects.find((p) => p.id === projectId)!.contractId)!;
+  const monday = mondayOf(anyDate);
+  if (contract.timesheetPeriod === "two_weeks") {
+    // Two-week periods anchored on 2026-10-12.
+    const weeks = Math.floor((new Date(monday).getTime() - new Date("2026-10-12").getTime()) / (7 * 86400000));
+    const from = addDays("2026-10-12", Math.floor(weeks / 2) * 14);
+    return { from, to: addDays(from, 13) };
+  }
+  if (contract.timesheetPeriod === "month") {
+    const from = `${anyDate.slice(0, 7)}-01`;
+    const next = new Date(Date.UTC(Number(anyDate.slice(0, 4)), Number(anyDate.slice(5, 7)), 1));
+    return { from, to: addDays(next.toISOString().slice(0, 10), -1) };
+  }
+  return { from: monday, to: addDays(monday, 6) };
+}
+

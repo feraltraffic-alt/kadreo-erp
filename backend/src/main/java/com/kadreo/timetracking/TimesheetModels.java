@@ -25,7 +25,7 @@ public final class TimesheetModels {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Day(LocalDate date, boolean hasShift, double plannedHours, double payableHours, double billableHours, String shiftLabel, Issue issue, List<Correction> corrections,
-            Boolean disputed, List<Dispute> disputes) {}
+            Boolean disputed, List<Dispute> disputes, Boolean clientConfirmed) {}
 
     /** One row per worker; the row id is the worker id. */
     public record Row(UUID id, UUID workerId, UUID positionId, List<Day> days) {}

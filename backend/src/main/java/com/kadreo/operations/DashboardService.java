@@ -87,6 +87,11 @@ public class DashboardService {
         return live(visibleSites(f));
     }
 
+    /** Live numbers for these sites without the back-office permission check (client portal). */
+    public List<SiteLive> liveFor(List<Site> sites) {
+        return live(sites);
+    }
+
     private List<SiteLive> live(List<Site> sites) {
         Map<UUID, Client> clients = org.clients().stream().collect(Collectors.toMap(Client::id, Function.identity()));
         Map<UUID, Project> projectBySite = org.projects().stream().collect(Collectors.toMap(Project::siteId, Function.identity(), (a, b) -> a));

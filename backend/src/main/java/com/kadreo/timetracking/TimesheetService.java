@@ -79,7 +79,7 @@ public class TimesheetService {
 
     /* ---------------------------------------------------------------------- entries */
 
-    record Entry(UUID id, UUID timesheetId, UUID workerId, UUID positionId, UUID assignmentId, LocalDate date, String shiftLabel, double plannedHours, double payableHours, double billableHours, String issueKind, Integer issueMinutes, boolean disputed) {}
+    record Entry(UUID id, UUID timesheetId, UUID workerId, UUID positionId, UUID assignmentId, LocalDate date, String shiftLabel, double plannedHours, double payableHours, double billableHours, String issueKind, Integer issueMinutes, boolean disputed, boolean clientConfirmed) {}
 
     private static Entry entry(ResultSet rs, int i) throws SQLException {
         return new Entry(
@@ -95,10 +95,11 @@ public class TimesheetService {
                 rs.getBigDecimal("billable_hours").doubleValue(),
                 rs.getString("issue_kind"),
                 (Integer) rs.getObject("issue_minutes"),
-                rs.getBoolean("disputed"));
+                rs.getBoolean("disputed"),
+                rs.getObject("client_confirmed_at") != null);
     }
 
-    private static final String ENTRY_SQL = "select id, timesheet_id, worker_id, position_id, assignment_id, date, shift_label, planned_hours, payable_hours, billable_hours, issue_kind, issue_minutes, disputed from timesheet_entry";
+    private static final String ENTRY_SQL = "select id, timesheet_id, worker_id, position_id, assignment_id, date, shift_label, planned_hours, payable_hours, billable_hours, issue_kind, issue_minutes, disputed, client_confirmed_at from timesheet_entry";
 
     private List<Entry> entries(UUID timesheetId) {
         return jdbc.sql(ENTRY_SQL + " where timesheet_id = ?").param(timesheetId).query(TimesheetService::entry).list();
@@ -127,11 +128,11 @@ public class TimesheetService {
     private static Day day(Entry e, List<Correction> corrections, List<Dispute> disputes) {
         Issue issue = e.issueKind() == null ? null : new Issue(e.issueKind(), e.issueMinutes());
         return new Day(e.date(), true, e.plannedHours(), e.payableHours(), e.billableHours(), e.shiftLabel(), issue, corrections, e.disputed() ? Boolean.TRUE : null,
-                disputes.isEmpty() ? null : disputes);
+                disputes.isEmpty() ? null : disputes, e.clientConfirmed() ? Boolean.TRUE : null);
     }
 
     private static Day empty(LocalDate d) {
-        return new Day(d, false, 0, 0, 0, null, null, List.of(), null, null);
+        return new Day(d, false, 0, 0, 0, null, null, List.of(), null, null, null);
     }
 
     static final String DISPUTE_SQL = """
@@ -155,6 +156,11 @@ public class TimesheetService {
         return jdbc.sql(DISPUTE_SQL + " where timesheet_id = ? order by created_at").param(timesheetId)
                 .query((rs, i) -> new D(rs.getObject("entry_id", UUID.class), dispute(rs))).list().stream()
                 .collect(Collectors.groupingBy(D::entryId, Collectors.mapping(D::d, Collectors.toList())));
+    }
+
+    /** The assembled timesheet for other services of this module (client view, 12.2). */
+    Timesheet assembleById(UUID id, Map<UUID, WorkerBrief> briefsOut) {
+        return assemble(header(id), briefsOut);
     }
 
     private Timesheet assemble(Header h, Map<UUID, WorkerBrief> briefsOut) {

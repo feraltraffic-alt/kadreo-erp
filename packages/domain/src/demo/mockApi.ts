@@ -35,7 +35,7 @@ import {
 } from "./generate";
 import { alerts, computeSiteLive, notifications, staffRequests } from "./ops";
 import { attachAssignment, cellsOf, progressCells, requestAssignments, requestCells, requestView } from "./requests";
-import { buildTimesheet, evidenceFor } from "./timesheets";
+import { evidenceFor, getTimesheet, periodFor, timesheetById } from "./timesheets";
 
 const wait = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 const clone = <T,>(x: T): T => structuredClone(x);
@@ -91,7 +91,6 @@ const scoringCtx: ScoringContext = {
 const active = (a: Assignment) => a.status === "confirmed" || a.status === "proposed";
 const siteOfProject = (projectId: string) => sites.find((s) => s.id === projects.find((p) => p.id === projectId)!.siteId)!;
 const publishState = new Map<string, SchedulePublishState>(); // `${projectId}|${monday}`
-const timesheetCache = new Map<string, Timesheet>();
 
 function weekPublishState(projectId: string, monday: string): SchedulePublishState {
   const key = `${projectId}|${monday}`;
@@ -138,38 +137,6 @@ function scheduleFor(projectId: string, from: string, to: string): ScheduleRespo
 
 function workerBrief(w: Worker) {
   return { id: w.id, firstName: w.firstName, lastName: w.lastName, number: w.number };
-}
-
-function timesheetKey(projectId: string, from: string) {
-  return `${projectId}|${from}`;
-}
-
-function getTimesheet(projectId: string, from: string, to: string): Timesheet {
-  const key = timesheetKey(projectId, from);
-  if (!timesheetCache.has(key)) timesheetCache.set(key, buildTimesheet(projectId, from, to));
-  return timesheetCache.get(key)!;
-}
-
-function timesheetById(id: string): Timesheet {
-  for (const t of timesheetCache.values()) if (t.id === id) return t;
-  throw new ApiError(404, { code: "not_found" });
-}
-
-function periodFor(projectId: string, anyDate: string): { from: string; to: string } {
-  const contract = contracts.find((c) => c.id === projects.find((p) => p.id === projectId)!.contractId)!;
-  const monday = mondayOf(anyDate);
-  if (contract.timesheetPeriod === "two_weeks") {
-    // Two-week periods anchored on 2026-10-12.
-    const weeks = Math.floor((new Date(monday).getTime() - new Date("2026-10-12").getTime()) / (7 * 86400000));
-    const from = addDays("2026-10-12", Math.floor(weeks / 2) * 14);
-    return { from, to: addDays(from, 13) };
-  }
-  if (contract.timesheetPeriod === "month") {
-    const from = `${anyDate.slice(0, 7)}-01`;
-    const next = new Date(Date.UTC(Number(anyDate.slice(0, 4)), Number(anyDate.slice(5, 7)), 1));
-    return { from, to: addDays(next.toISOString().slice(0, 10), -1) };
-  }
-  return { from: monday, to: addDays(monday, 6) };
 }
 
 const jobs = new Map<string, AutoAssignJob & { startedAt: number; projectId: string }>();

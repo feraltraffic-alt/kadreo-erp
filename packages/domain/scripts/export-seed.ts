@@ -37,6 +37,7 @@ import {
   workers,
 } from "../src/demo/generate";
 import { alerts, notifications, staffRequests } from "../src/demo/ops";
+import { clientUsers } from "../src/demo/org";
 import { requestAssignments, requestCells } from "../src/demo/requests";
 import { buildTimesheet, evidenceFor } from "../src/demo/timesheets";
 
@@ -119,6 +120,9 @@ seed.reason = [
 ];
 
 seed.client = clients.map((c) => ({ id: id(c.id), ...T, name: c.name, short_name: c.shortName, nip: c.nip, country: c.country, manager_user_id: id(c.managerUserId) }));
+// Client users of the portal (12), after the clients they belong to ("table#part" keys load into "table").
+seed["app_user#client"] = clientUsers.map((u) => ({ id: id(u.id), ...T, email: u.email, full_name: u.fullName, locale: u.locale, client_id: id(u.clientId) }));
+seed["user_role#client"] = clientUsers.map((u) => ({ ...T, user_id: id(u.id), role_code: u.role }));
 seed.site = sites.map((s) => ({
   id: id(s.id),
   ...T,
@@ -247,6 +251,8 @@ for (const p of projects) {
     manager_confirmed: ts.managerConfirmed,
     client_stage: stage.kind,
     client_due_at: stage.kind === "waiting" ? new Date(stage.until).toISOString() : null,
+    sent_at: ts.sentAt ? new Date(ts.sentAt).toISOString() : null,
+    sent_by: ts.sentByName ? id(users.find((u) => u.full_name === ts.sentByName)?.key ?? "u-marta") : null,
   });
   for (const row of ts.rows) {
     for (const d of row.days) {
