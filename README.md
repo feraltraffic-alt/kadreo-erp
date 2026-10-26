@@ -20,6 +20,7 @@ packages/i18n       ICU MessageFormat, 4 языка (PL, UK, RU, EN), {productNa
 packages/domain     доменные типы, контракт API, правила назначения и скоринг, демо-данные
 backend             Spring Boot modular monolith: platform, organization, workforce, timetracking, operations, demo
 infra               init-скрипт БД, конфиг nginx
+docs/BACKLOG.md     что упрощено и надо доделать
 e2e                 сквозной сценарий в браузере против поднятого стенда
 ```
 
