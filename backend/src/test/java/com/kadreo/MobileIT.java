@@ -292,9 +292,9 @@ class MobileIT extends IntegrationTest {
         assertThat(ts).containsEntry("from", "2026-10-26").containsEntry("to", "2026-11-01");
         Map viktorRow = ((List<Map>) ts.get("rows")).stream().filter(r -> r.get("workerId").equals(fromKey("w-1").toString())).findFirst().orElseThrow();
         Map monday = ((List<Map>) viktorRow.get("days")).get(0);
-        // In at 05:50 counts from 06:00; out at 08:14 rounds up to 08:15 in the worker's favour; left 346 min early.
+        // In at 05:50 counts from 06:00; out at 08:14 rounds up to 08:15 in the worker's favour; left 345 min early (out at 08:14:52).
         assertThat(monday).containsEntry("payableHours", 2.25).containsEntry("billableHours", 2.25).containsEntry("plannedHours", 8.0);
-        assertThat((Map) monday.get("issue")).containsEntry("kind", "late_or_early").containsEntry("minutes", 346);
+        assertThat((Map) monday.get("issue")).containsEntry("kind", "late_or_early").containsEntry("minutes", 345);
         // Colleagues still on shift are not judged yet.
         Map other = ((List<Map>) ts.get("rows")).stream().filter(r -> !r.get("workerId").equals(fromKey("w-1").toString())).findFirst().orElseThrow();
         assertThat(((List<Map>) other.get("days")).get(0)).doesNotContainKey("issue");
