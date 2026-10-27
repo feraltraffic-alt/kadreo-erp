@@ -537,7 +537,11 @@ export function createMockApi(): Api {
     async timesheet(projectId, from, to) {
       requirePermission("timesheet.read");
       await wait();
-      const t = getTimesheet(projectId, from, to);
+      // Any date of the period opens it, as on the server (the period comes from the contract).
+      const period = periodFor(projectId, from);
+      void to;
+      if (period.from > DEMO_TODAY) throw new ApiError(404, { code: "not_found" });
+      const t = getTimesheet(projectId, period.from, period.to);
       const project = projects.find((p) => p.id === projectId)!;
       const site = siteOfProject(projectId);
       const ws: Record<string, ReturnType<typeof workerBrief>> = {};

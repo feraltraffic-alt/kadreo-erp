@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +27,18 @@ public class ClockEvents {
     private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
 
     private final JdbcClient jdbc;
+    private final ApplicationEventPublisher events;
 
-    public ClockEvents(JdbcClient jdbc) {
+    public ClockEvents(JdbcClient jdbc, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
+        this.events = events;
     }
+
+    /**
+     * An assignment's clock events changed (new event or a decision). Published synchronously in
+     * the same transaction: the timesheet day is recomputed together with the change.
+     */
+    public record ClockEventChanged(UUID assignmentId) {}
 
     /** One stored event. {@code at} is when it happened (device time for offline and manual records). */
     public record Event(UUID id, UUID workerId, UUID assignmentId, UUID siteId, String type, OffsetDateTime at, String source, String status, boolean offline, String approvedByName,
@@ -71,6 +80,7 @@ public class ClockEvents {
                 .param(e.source()).param(e.status()).param(e.accuracyM()).param(e.photo()).param(e.lat()).param(e.lng()).param(e.distanceM()).param(e.comment()).param(e.offline())
                 .param(e.idempotencyKey()).param(e.qrPoint()).param(e.kioskDeviceId()).param(e.manualReason()).param(e.createdBy()).param(e.createdByName())
                 .update();
+        if (e.assignmentId() != null) events.publishEvent(new ClockEventChanged(e.assignmentId()));
         return byId(id);
     }
 
@@ -105,11 +115,16 @@ public class ClockEvents {
     /** Four-eyes decision (section 3): returns false when the event was no longer pending. */
     @Transactional
     public boolean decide(UUID id, boolean approve, UUID by, String byName, String reason, OffsetDateTime at) {
-        return jdbc.sql("""
+        boolean changed = jdbc.sql("""
                 update clock_event set status = ?, decided_by = ?, decided_by_name = ?, decided_at = ?, decision_reason = ?
                 where id = ? and status = 'pending'""")
                 .param(approve ? "accepted" : "rejected").param(by).param(byName).param(at).param(reason).param(id)
                 .update() == 1;
+        if (changed) {
+            jdbc.sql("select assignment_id from clock_event where id = ? and assignment_id is not null").param(id).query(UUID.class).list()
+                    .forEach(a -> events.publishEvent(new ClockEventChanged(a)));
+        }
+        return changed;
     }
 
     /** Recent events at a site (kiosk «Последние отметки»). */

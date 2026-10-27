@@ -277,6 +277,7 @@ export type TimesheetIssueKind =
   | "unapproved_overtime"
   | "outside_geofence"
   | "no_show"
+  | "manual_pending"
   | "anomaly";
 
 export interface TimesheetCorrection {

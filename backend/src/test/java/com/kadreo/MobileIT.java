@@ -40,6 +40,7 @@ class MobileIT extends IntegrationTest {
     long maxSeq;
     OffsetDateTime started;
     List<UUID> notifications;
+    List<UUID> timesheets;
     Map<String, Object> viktorCredential;
 
     <T> T db(Supplier<T> work) {
@@ -55,6 +56,7 @@ class MobileIT extends IntegrationTest {
         maxSeq = db(() -> jdbc.sql("select coalesce(max(seq), 0) from clock_event").query(Long.class).single());
         started = db(() -> jdbc.sql("select now()").query(OffsetDateTime.class).single());
         notifications = db(() -> jdbc.sql("select id from notification").query(UUID.class).list());
+        timesheets = db(() -> jdbc.sql("select id from timesheet").query(UUID.class).list());
         viktorCredential = db(() -> jdbc.sql("select pin_hash, biometric_consent_at from worker_credential where worker_id = ?").param(fromKey("w-1")).query().singleRow());
     }
 
@@ -67,6 +69,8 @@ class MobileIT extends IntegrationTest {
                     .param(new UUID[] {fromKey("ci-1"), fromKey("ci-2"), fromKey("ci-3")}).update();
             jdbc.sql("delete from clock_issue where id <> all(?)").param(new UUID[] {fromKey("ci-1"), fromKey("ci-2"), fromKey("ci-3")}).update();
             jdbc.sql("delete from clock_event where seq > ?").param(maxSeq).update();
+            jdbc.sql("delete from timesheet where id <> all(?)").param(timesheets.toArray(UUID[]::new)).update();
+            jdbc.sql("delete from timesheet_entry where assignment_id = any(?)").param(ids).update();
             jdbc.sql("delete from staff_request_assignment where assignment_id = any(?)").param(ids).update();
             jdbc.sql("update urgent_offer set status = 'sent', responded_at = null, assignment_id = null where id = ?").param(fromKey("uo-seed-1")).update();
             jdbc.sql("update urgent_request set accepted = 0, closed_at = null where id = ?").param(fromKey("ur-seed-1")).update();
@@ -272,6 +276,32 @@ class MobileIT extends IntegrationTest {
         });
         assertThat(marta.post("/api/v1/manager/broadcasts", Map.of("siteId", fromKey("s-strykow").toString(), "text", "Вход 2 закрыт"), Map.class).getBody())
                 .containsEntry("recipients", 49);
+    }
+
+    /* --------------------------------------------------------------- timesheet */
+
+    @Test
+    void clockEventsFillTheTimesheetDay() {
+        Api v = as(VIKTOR);
+        double lat = 51.902, lng = 19.601;
+        assertThat(v.post("/api/v1/clock-events", clock("out", lat, lng, null, "k-ts-out"), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        // The week of 26.10 had no timesheet yet: the clock-out created it, the day is computed.
+        Map body = as(DemoIds.DEMO_USER_EMAIL).get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-strykow") + "&from=2026-10-26", Map.class).getBody();
+        Map ts = (Map) body.get("timesheet");
+        assertThat(ts).containsEntry("from", "2026-10-26").containsEntry("to", "2026-11-01");
+        Map viktorRow = ((List<Map>) ts.get("rows")).stream().filter(r -> r.get("workerId").equals(fromKey("w-1").toString())).findFirst().orElseThrow();
+        Map monday = ((List<Map>) viktorRow.get("days")).get(0);
+        // In at 05:50 counts from 06:00; out at 08:14 rounds up to 08:15 in the worker's favour; left 346 min early.
+        assertThat(monday).containsEntry("payableHours", 2.25).containsEntry("billableHours", 2.25).containsEntry("plannedHours", 8.0);
+        assertThat((Map) monday.get("issue")).containsEntry("kind", "late_or_early").containsEntry("minutes", 346);
+        // Colleagues still on shift are not judged yet.
+        Map other = ((List<Map>) ts.get("rows")).stream().filter(r -> !r.get("workerId").equals(fromKey("w-1").toString())).findFirst().orElseThrow();
+        assertThat(((List<Map>) other.get("days")).get(0)).doesNotContainKey("issue");
+
+        // A future period is not created on open.
+        assertThat(as(DemoIds.DEMO_USER_EMAIL).get("/api/v1/timesheets/by-period?projectId=" + fromKey("pr-strykow") + "&from=2026-11-09", Map.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     /* ------------------------------------------------------------------- kiosk */

@@ -4,7 +4,7 @@ import { Badge, Button, Card, cn, Dialog, DialogContent, DialogFooter, ErrorStat
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import writeXlsxFile from "write-excel-file/universal";
 import { api, useSession } from "../../app/session";
 import { useFormat } from "../../lib/format";
@@ -121,7 +121,21 @@ export function TimesheetPage() {
     <div>
       <PageHeader
         crumbs={[{ label: t("nav.timesheets"), to: "/timesheets" }, { label: data?.client.shortName ?? "…" }, { label: data?.site.name ?? "…" }]}
-        title={t("ts.title", { from: dayMonth(from), to: fullDate(to) })}
+        title={t("ts.title", { from: dayMonth(ts?.from ?? from), to: fullDate(ts?.to ?? to) })}
+        meta={
+          ts ? (
+            <div className="flex items-center gap-2">
+              <Link to={`/timesheets/projects/${projectId}?from=${addDays(ts.from, -1)}`}>
+                <Button size="sm">{t("ts.prev")}</Button>
+              </Link>
+              {addDays(ts.to, 1) <= DEMO_TODAY ? (
+                <Link to={`/timesheets/projects/${projectId}?from=${addDays(ts.to, 1)}`}>
+                  <Button size="sm">{t("ts.next")}</Button>
+                </Link>
+              ) : null}
+            </div>
+          ) : undefined
+        }
         actions={
           <>
             <Button disabled={!data} onClick={() => data && void exportXlsx(data)}>

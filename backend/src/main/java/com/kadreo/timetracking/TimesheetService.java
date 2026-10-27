@@ -57,8 +57,10 @@ public class TimesheetService {
     private final CurrentUserService users;
     private final AuditLog audit;
     private final Clock clock;
+    private final TimesheetLive live;
 
-    public TimesheetService(JdbcClient jdbc, OrganizationService org, WorkforceService workforce, CurrentUserService users, AuditLog audit, Clock clock) {
+    public TimesheetService(JdbcClient jdbc, OrganizationService org, WorkforceService workforce, CurrentUserService users, AuditLog audit, Clock clock, TimesheetLive live) {
+        this.live = live;
         this.jdbc = jdbc;
         this.org = org;
         this.workforce = workforce;
@@ -242,11 +244,16 @@ public class TimesheetService {
 
     public record TimesheetResponse(Timesheet timesheet, Project project, Site site, Client client, Contract contract, Map<UUID, WorkerBrief> workers) {}
 
-    @Transactional(readOnly = true)
+    /** The period's timesheet; the current or a past period is created from assignments and clock events if missing. */
+    @Transactional
     public TimesheetResponse byPeriod(UUID projectId, LocalDate from) {
         users.require("timesheet.read");
         Header h = jdbc.sql(HEADER_SQL + " where project_id = ? and period_from <= ? and period_to >= ? order by period_from desc limit 1")
-                .param(projectId).param(from).param(from).query(Header.class).optional().orElseThrow(ApiException::notFound);
+                .param(projectId).param(from).param(from).query(Header.class).optional().orElse(null);
+        if (h == null) {
+            if (from.isAfter(LocalDate.now(clock.withZone(TENANT_ZONE))) || !inScope(users.current(), org.site(org.project(projectId).siteId()))) throw ApiException.notFound();
+            h = header(live.ensure(projectId, from));
+        }
         return response(h);
     }
 
